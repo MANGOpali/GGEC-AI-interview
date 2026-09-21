@@ -18,42 +18,30 @@ export default function StudyDetails({ value, onSave, onDelete }) {
       }}
     >
       <h2>Study details</h2>
-      {[
-        [
-          'About you',
-          ['name', 'nationality', 'previous_qualification', 'study_gap', 'work_experience'],
-        ],
-        [
-          'Your studies',
-          ['university', 'course', 'intake', 'course_duration', 'tuition_fee', 'scholarship'],
-        ],
-        ['Your plans', ['funding_details', 'accommodation', 'career_plans']],
-      ].map(([title, fields]) => (
-        <section key={title}>
-          <h2>{title}</h2>
-          <div className="form-grid">
-            {fields.map((name) => (
-              <Field
-                key={name}
-                name={name}
-                value={p[name]}
-                required={!['study_gap', 'work_experience', 'intake'].includes(name)}
-                type={
-                  ['tuition_fee', 'scholarship'].includes(name)
-                    ? 'number'
-                    : ['funding_details', 'accommodation', 'career_plans'].includes(name)
-                      ? 'textarea'
-                      : 'text'
-                }
-                onChange={(v) => setP({ ...p, [name]: v })}
-              />
-            ))}
-          </div>
-          {title === 'Your studies' && (
-            <p className="muted">Tuition and scholarship amounts are in GBP (£).</p>
-          )}
-        </section>
-      ))}
+      <section>
+        <h2>Your studies</h2>
+        <div className="form-grid">
+          <Field
+            name="university"
+            label="University or college name"
+            value={p.university}
+            required
+            onChange={(v) => setP({ ...p, university: v })}
+          />
+          <Field
+            name="course"
+            value={p.course}
+            required
+            onChange={(v) => setP({ ...p, course: v })}
+          />
+          <Field
+            name="intake"
+            value={p.intake}
+            required
+            onChange={(v) => setP({ ...p, intake: v })}
+          />
+        </div>
+      </section>
       <section>
         <h2>Your privacy choices</h2>
         <label className="checkbox">

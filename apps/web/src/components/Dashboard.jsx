@@ -26,7 +26,7 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
           <h1>
             {staff
               ? 'Your student workspace'
-              : `Welcome${profile?.name ? ', ' + profile.name.split(' ')[0] : ''}.`}
+              : `Welcome${user?.name ? ', ' + user.name.split(' ')[0] : ''}.`}
           </h1>
           <p>
             {staff

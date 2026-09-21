@@ -16,6 +16,7 @@ const profile = {
   previous_qualification: 'BBA',
   university: 'Example University',
   course: 'MSc Business',
+  intake: 'September 2026',
   course_duration: '1 year',
   tuition_fee: 16000,
   scholarship: 2000,
@@ -822,4 +823,34 @@ test('standards bank is staff-only, validates activation, snapshots 19 questions
  assert(['major','cross','extra'].includes(s.questions[s.index].question_type));assert.equal(s.index,1);assert.equal(s.answers[0].duration_flag,'below_minimum');
  await as('admin').put('/standards-bank/settings',{revision:2,enabled:true,grammar_allowance:40}).expect(200);
  assert.equal((await repo.session(s.id)).grammar_allowance,25);
+});
+
+test('minimal student profile: only university, course and intake are required', async (t) => {
+  const { as, repo } = await setup(t);
+  const minimal = { university: 'Example University', course: 'MSc Business', intake: 'September 2026' };
+  await as().put('/profile', {}).expect(400);
+  await as().put('/profile', { university: '', course: '', intake: '' }).expect(400);
+  await as().put('/profile', { university: 'Example University', course: 'MSc Business' }).expect(400);
+  const saved = (await as().put('/profile', minimal).expect(200)).body;
+  assert.equal(saved.university, minimal.university);
+  assert.equal(saved.course, minimal.course);
+  assert.equal(saved.intake, minimal.intake);
+  assert.equal(saved.nationality, '');
+  assert.equal(saved.tuition_fee, 0);
+  const fetched = (await as().get('/profile')).body;
+  assert.equal(fetched.university, minimal.university);
+  assert.equal(fetched.leaderboard_opt_in, false);
+  const s = (await as().post('/sessions', { consent: true }).expect(201)).body;
+  assert.equal(s.questions.length, 11);
+  const answered = (
+    await as()
+      .post(`/sessions/${s.id}/answers`, {
+        version: s.version,
+        request_id: randomUUID(),
+        transcript: 'An honest, thoughtful answer with no profile detail needed.',
+      })
+      .expect(200)
+  ).body;
+  assert.equal(answered.answers.length, 1);
+  assert.equal((await repo.profile(demoUsers[0].id)).accommodation, '');
 });

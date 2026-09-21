@@ -16,24 +16,27 @@ export const metrics = [
   'clarity_communication',
 ];
 const text = z.string().trim().max(3000);
+// Only university, course and intake are required from students. The remaining fields are
+// legacy history: existing profiles keep whatever values they already have, but new/edited
+// profiles are never required to fill or show them.
 export const profileSchema = z
   .object({
-    name: text.min(1),
-    nationality: text.min(1),
-    previous_qualification: text.min(1),
+    name: text.default(''),
+    nationality: text.default(''),
+    previous_qualification: text.default(''),
     university: text.min(1),
-    intake: z.string().trim().max(80).default(''),
+    intake: z.string().trim().min(1).max(80),
     course: text.min(1),
-    course_duration: text.min(1),
-    tuition_fee: z.number().min(0).max(1000000),
-    scholarship: z.number().min(0).max(1000000),
-    study_gap: text,
-    work_experience: text,
-    funding_details: text.min(1),
-    accommodation: text.min(1),
-    career_plans: text.min(1),
-    leaderboard_opt_in: z.boolean(),
-    leaderboard_alias: z.string().trim().max(40),
+    course_duration: text.default(''),
+    tuition_fee: z.number().min(0).max(1000000).default(0),
+    scholarship: z.number().min(0).max(1000000).default(0),
+    study_gap: text.default(''),
+    work_experience: text.default(''),
+    funding_details: text.default(''),
+    accommodation: text.default(''),
+    career_plans: text.default(''),
+    leaderboard_opt_in: z.boolean().default(false),
+    leaderboard_alias: z.string().trim().max(40).default(''),
   })
   .refine((p) => p.scholarship <= p.tuition_fee, {
     message: 'Scholarship cannot exceed tuition fee.',

@@ -3,21 +3,12 @@ import { ArrowUpRight, ClipboardList } from 'lucide-react';
 export const label = (s) => s.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase());
 export const date = (s) =>
   new Date(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+// Students only enter university/college, course and intake. Other keys are legacy fields kept
+// for older stored profiles; new profiles never require or show them.
 export const emptyProfile = {
-  name: '',
-  nationality: '',
-  previous_qualification: '',
   university: '',
-  intake: '',
   course: '',
-  course_duration: '',
-  tuition_fee: 0,
-  scholarship: 0,
-  study_gap: '',
-  work_experience: '',
-  funding_details: '',
-  accommodation: '',
-  career_plans: '',
+  intake: '',
   leaderboard_opt_in: false,
   leaderboard_alias: '',
 };
@@ -28,10 +19,10 @@ export function Button({ children, secondary = false, ...props }) {
     </button>
   );
 }
-export function Field({ name, value, onChange, type = 'text', required = false }) {
+export function Field({ name, value, onChange, type = 'text', required = false, label: labelText }) {
   return (
     <label className="field">
-      {label(name)}
+      {labelText ?? label(name)}
       {type === 'textarea' ? (
         <textarea
           required={required}
