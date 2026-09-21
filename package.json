@@ -1,0 +1,24 @@
+{
+  "name": "ggec-interview",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w apps/web",
+    "start": "npm start -w apps/server",
+    "test": "node --test apps/server/test/*.test.js",
+    "test:live": "node --env-file=apps/server/.env scripts/smoke-live.js",
+    "check": "npm test && npm run build"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.6"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

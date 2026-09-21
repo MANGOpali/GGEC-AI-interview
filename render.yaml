@@ -1,0 +1,33 @@
+# Render blueprint — one web service serves both the built web app and the /api.
+# Import this repo on Render (Dashboard > New > Blueprint) and fill in the
+# dashboard-only env vars marked "sync: false" (see the HTTPS setup guide below).
+services:
+  - type: web
+    name: ggec-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build -w apps/web
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_MODE
+        value: supabase
+      - key: TRUST_PROXY_HOPS
+        value: '1'
+      # Set to "gemini" + GEMINI_API_KEY + GEMINI_MODEL to enable AI scoring.
+      - key: LLM_PROVIDER
+        value: disabled
+      # Provide these secrets in the dashboard (never commit them):
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
