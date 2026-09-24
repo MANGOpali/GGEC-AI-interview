@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Plus, PlayCircle, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { Button, Field, Title, label } from './common';
 import QuestionAngles from './QuestionAngles';
@@ -18,15 +18,20 @@ const blankQuestion = {
 };
 const timeOptions = [30, 45, 60, 90, 120, 150, 180, 240, 300, 450, 600];
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-export default function Questions({ run }) {
+export default function Questions({ run, onTestInterview }) {
   const [rows, setRows] = useState([]),
     [edit, setEdit] = useState(null),
     [busy, setBusy] = useState(false),
-    [remove, setRemove] = useState(null);
+    [remove, setRemove] = useState(null),
+    [testCategory, setTestCategory] = useState('');
   const load = () => api('/questions').then(setRows);
   useEffect(() => {
     run(load);
   }, []);
+  const testCategories = useMemo(
+    () => [...new Set(rows.filter((q) => q.is_main_question).map((q) => q.category))],
+    [rows],
+  );
   return (
     <>
       <Title
@@ -34,6 +39,34 @@ export default function Questions({ run }) {
         title="A better conversation starts here."
         description="Manage questions, category weights, expected concepts and verified source context."
       />
+      {onTestInterview && (
+        <section className="card">
+          <div className="section-title">
+            <h2>Test the interview</h2>
+          </div>
+          <p className="muted">
+            Run a live test attempt on your own staff account to check question flow, timing and
+            scoring. Test attempts are kept separate from student stats and the leaderboard.
+          </p>
+          <div className="actions">
+            <label className="field">
+              Interview to test
+              <select value={testCategory} onChange={(e) => setTestCategory(e.target.value)}>
+                <option value="">Full interview (standards bank, if enabled)</option>
+                {testCategories.map((c) => (
+                  <option key={c} value={c}>
+                    {c} practice
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button onClick={() => onTestInterview(testCategory)}>
+              <PlayCircle size={17} />
+              Start test interview
+            </Button>
+          </div>
+        </section>
+      )}
       <StandardsBank run={run} legacyQuestions={rows} />
       <h2>Existing question library and category practice</h2>
       <Button onClick={() => setEdit({ ...blankQuestion })}>

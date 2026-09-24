@@ -28,7 +28,13 @@ export default function Leaderboard({ run, onProfile, student }) {
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i}>
-                  <td>{i + 1}</td>
+                  <td>
+                    {i < 3 ? (
+                      <span className={`rank-medal ${['gold', 'silver', 'bronze'][i]}`}>{i + 1}</span>
+                    ) : (
+                      i + 1
+                    )}
+                  </td>
                   <td>{r.alias}</td>
                   <td>{r.score}/100</td>
                 </tr>

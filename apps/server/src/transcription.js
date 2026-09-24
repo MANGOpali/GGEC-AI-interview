@@ -6,7 +6,7 @@ export function createTranscriber(env = process.env) {
     throw new Error('Unsupported speech model.');
   return {
     name: 'groq',
-    async transcribeAudio(bytes, type) {
+    async transcribeAudio(bytes, type, prompt) {
       const form = new FormData();
       const extension = {
         'audio/webm': 'webm',
@@ -19,6 +19,10 @@ export function createTranscriber(env = process.env) {
       form.set('language', 'en');
       form.set('response_format', 'verbose_json');
       form.set('temperature', '0');
+      // Biases decoding toward the interview question's vocabulary/context, which measurably
+      // reduces Whisper's tendency to hallucinate fluent but unrelated English on quiet, noisy,
+      // or accented audio. Truncated well under Whisper's ~224-token prompt limit.
+      if (prompt) form.set('prompt', prompt.slice(0, 800));
       let response;
       try {
         response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {

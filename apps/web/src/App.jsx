@@ -57,7 +57,8 @@ export default function App() {
     [loading, setLoading] = useState(true),
     [profile, setProfile] = useState(null),
     [sessions, setSessions] = useState([]),
-    [selected, setSelected] = useState(null);
+    [selected, setSelected] = useState(null),
+    [testCategory, setTestCategory] = useState('');
   async function refresh() {
     const [p, s] = await Promise.all([api('/profile'), api('/sessions')]);
     setProfile(p);
@@ -116,6 +117,11 @@ export default function App() {
       setSelected(await api(`/sessions/${id}`));
       navigate(user?.role === 'student' ? 'interview' : 'practice');
     });
+  const startTestInterview = (category) => {
+    setSelected(null);
+    setTestCategory(category || '');
+    navigate('practice');
+  };
   if (loading)
     return (
       <div className="loading">
@@ -148,6 +154,7 @@ export default function App() {
         ['questions', BookOpen, 'Question bank'],
         ['calibration', ShieldCheck, 'Scoring comparison'],
         ['ranking', Trophy, 'Leaderboard'],
+        ['practice', Mic, 'Test interview'],
         ...(user.role === 'admin'
           ? [
               ['resources', FileText, 'Resources'],
@@ -301,6 +308,7 @@ export default function App() {
               initial={selected}
               profile={profile}
               staff={staff}
+              initialCategory={testCategory}
               onError={setError}
               onUpdate={(s) => {
                 setSelected(s);
@@ -329,7 +337,7 @@ export default function App() {
           )}
           {page === 'resources' && <ResourceAdmin run={run} />}
           {page === 'calibration' && <Calibration sessions={sessions} run={run} />}
-          {page === 'questions' && <Questions run={run} />}
+          {page === 'questions' && <Questions run={run} onTestInterview={startTestInterview} />}
           {page === 'students' && (
             <Students sessions={sessions} run={run} openSession={openSession} />
           )}

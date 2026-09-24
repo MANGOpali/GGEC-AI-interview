@@ -97,7 +97,7 @@ export function createRecordedSpeech(upload, getBrowser = () => globalThis) {
             throw new Error(
               'Audio recording is unsupported in this browser. Please type your answer.',
             );
-          recorder = new b.MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 64000 });
+          recorder = new b.MediaRecorder(stream, { mimeType: type, audioBitsPerSecond: 128000 });
           recorder.ondataavailable = (e) => {
             if (cancelled || !e.data.size) return;
             bytes += e.data.size;

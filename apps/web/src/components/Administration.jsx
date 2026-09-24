@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ClipboardList, ShieldCheck, UserCog, Users } from 'lucide-react';
 import { api } from '../services/api';
-import { Button, Title } from './common';
+import { Badge, Button, Stat, Title } from './common';
+
+const roleTone = { admin: 'role-admin', counsellor: 'role-counsellor', student: 'role-student' };
 
 export default function Administration({ run }) {
   const [users, setUsers] = useState([]),
@@ -18,6 +21,9 @@ export default function Administration({ run }) {
     run(load);
   }, []);
   const name = (id) => users.find((u) => u.id === id)?.name || id;
+  const staff = useMemo(() => users.filter((u) => u.role !== 'student'), [users]);
+  const counsellorCount = staff.filter((u) => u.role === 'counsellor').length,
+    adminCount = staff.filter((u) => u.role === 'admin').length;
   return (
     <>
       <Title
@@ -25,6 +31,36 @@ export default function Administration({ run }) {
         title="Keep support connected."
         description="Assign counsellors and inspect the most recent staff access events."
       />
+      <div className="stats">
+        <Stat icon={Users} title="Staff accounts" value={staff.length} note="Counsellors and admins" />
+        <Stat icon={UserCog} title="Counsellors" value={counsellorCount} note="Can review assigned students" />
+        <Stat icon={ShieldCheck} title="Admins" value={adminCount} note="Full workspace access" />
+        <Stat
+          icon={ClipboardList}
+          title="Active assignments"
+          value={assignments.length}
+          note="Counsellor ↔ student links"
+        />
+      </div>
+      <section className="card">
+        <h2>Staff directory</h2>
+        {staff.length ? (
+          <div className="staff-directory">
+            {staff.map((u) => (
+              <div className="staff-row" key={u.id}>
+                <span className="avatar-sm">{(u.name || u.email || '?').slice(0, 1).toUpperCase()}</span>
+                <div>
+                  <b>{u.name || u.email}</b>
+                  <small>{u.email}</small>
+                </div>
+                <Badge tone={roleTone[u.role] || 'muted'}>{u.role}</Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No staff accounts found.</p>
+        )}
+      </section>
       <section className="card">
         <h2>Counsellor assignments</h2>
         <form
@@ -65,29 +101,38 @@ export default function Administration({ run }) {
           </label>
           <Button>Assign</Button>
         </form>
-        {assignments.map((a) => (
-          <p className="assignment" key={a.id}>
-            {name(a.counsellor_id)} → {name(a.student_id)}
-            <button
-              className="text-button danger"
-              onClick={() =>
-                run(async () => {
-                  await api(`/assignments/${a.id}`, 'DELETE');
-                  await load();
-                })
-              }
-            >
-              Remove
-            </button>
-          </p>
-        ))}
+        {assignments.length ? (
+          assignments.map((a) => (
+            <p className="assignment" key={a.id}>
+              <span>
+                {name(a.counsellor_id)} <Badge tone="muted">→</Badge> {name(a.student_id)}
+              </span>
+              <button
+                className="text-button danger"
+                onClick={() =>
+                  run(async () => {
+                    await api(`/assignments/${a.id}`, 'DELETE');
+                    await load();
+                  })
+                }
+              >
+                Remove
+              </button>
+            </p>
+          ))
+        ) : (
+          <p className="muted">No counsellor is assigned to a student yet.</p>
+        )}
         <p className="muted">
           Staff roles are provisioned through trusted database administration. Signup always creates
           a Student account.
         </p>
       </section>
       <section className="card audit">
-        <h2>Recent audit events</h2>
+        <div className="section-title">
+          <h2>Recent audit events</h2>
+          <span className="pill">{logs.length} events</span>
+        </div>
         <table>
           <thead>
             <tr>
@@ -102,7 +147,9 @@ export default function Administration({ run }) {
               <tr key={l.id}>
                 <td>{new Date(l.created_at).toLocaleString()}</td>
                 <td>{name(l.actor_id)}</td>
-                <td>{l.resource}</td>
+                <td>
+                  <Badge>{l.resource}</Badge>
+                </td>
                 <td>{name(l.student_id)}</td>
               </tr>
             ))}

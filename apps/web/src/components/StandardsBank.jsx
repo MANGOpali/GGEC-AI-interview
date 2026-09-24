@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { CheckCircle2, AlertTriangle, ClipboardList, GitBranch, Layers } from 'lucide-react';
 import { api } from '../services/api';
-import { Button, Field } from './common';
+import { Badge, Button, Field, Stat, Tabs } from './common';
+const typeName = { major: 'Major questions', cross: 'Cross-questions', extra: 'Extra questions' };
 const blank = (type) => ({
   type,
   parent_id: null,
@@ -32,28 +34,44 @@ export default function StandardsBank({ run, legacyQuestions = [] }) {
     }
   };
   if (!bank) return <p>Loading standards bank…</p>;
-  const majors = bank.questions.filter((q) => q.type === 'major');
+  const majors = bank.questions.filter((q) => q.type === 'major'),
+    crosses = bank.questions.filter((q) => q.type === 'cross'),
+    extras = bank.questions.filter((q) => q.type === 'extra');
   return (
     <section className="card">
-      <h2>19-question interview standards</h2>
+      <div className="section-title">
+        <h2>19-question interview standards</h2>
+        <Badge tone={bank.enabled ? 'on' : 'off'}>
+          {bank.enabled ? 'Enabled · live' : 'Draft'}
+        </Badge>
+      </div>
       <p>
         19 questions: 7 majors, 0–9 crosses and extra questions filling the remaining slots. Each
         major may have 0–3 crosses. Add more extras to allow fewer crosses. Introduction first.
         Standards 60%, clarity 20%, grammar 10%, correctness 10%.
       </p>
-      <p>
-        {bank.enabled
-          ? 'Enabled for new full interviews'
-          : 'Draft — existing interview format remains active'}{' '}
-        · Revision {bank.revision}
-      </p>
-      {!bank.readiness.ready && (
-        <ul>
-          {bank.readiness.issues.map((x) => (
-            <li key={x}>{x}</li>
-          ))}
-        </ul>
-      )}
+      <div className="stats">
+        <Stat icon={ClipboardList} title="Major questions" value={majors.length} note="Target: 7" />
+        <Stat icon={GitBranch} title="Cross-questions" value={crosses.length} note="Up to 3 per major" />
+        <Stat icon={Layers} title="Extra questions" value={extras.length} note="Fill remaining slots" />
+      </div>
+      <div className={`readiness-banner ${bank.readiness.ready ? 'ok' : 'warn'}`}>
+        {bank.readiness.ready ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+        <div>
+          {bank.readiness.ready ? (
+            <span>Bank is complete and ready for the 19-question format. Revision {bank.revision}.</span>
+          ) : (
+            <>
+              <span>Not ready yet — resolve before enabling. Revision {bank.revision}.</span>
+              <ul>
+                {bank.readiness.issues.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
       {bank.can_configure && (
         <div>
           <Field
@@ -91,25 +109,17 @@ export default function StandardsBank({ run, legacyQuestions = [] }) {
         fluency. Grammar within the allowance gets full grammar credit; above it the deduction
         increases gradually.
       </p>
-      <div className="actions">
-        {['major', 'cross', 'extra'].map((type) => (
-          <Button
-            key={type}
-            secondary
-            onClick={() => {
-              setTab(type);
-              setEdit(null);
-            }}
-          >
-            {type === 'major'
-              ? 'Major questions'
-              : type === 'cross'
-                ? 'Cross-questions'
-                : 'Extra questions'}{' '}
-            ({bank.questions.filter((q) => q.type === type).length})
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        value={tab}
+        onChange={(type) => {
+          setTab(type);
+          setEdit(null);
+        }}
+        options={['major', 'cross', 'extra'].map((type) => [
+          type,
+          `${typeName[type]} (${bank.questions.filter((q) => q.type === type).length})`,
+        ])}
+      />
       <Button disabled={busy} onClick={() => setEdit(blank(tab))}>
         Add {tab} question
       </Button>
@@ -294,51 +304,63 @@ export default function StandardsBank({ run, legacyQuestions = [] }) {
           </div>
         </form>
       )}
+      {bank.questions.filter((q) => q.type === tab).length === 0 && (
+        <div className="empty">
+          <h3>No {typeName[tab].toLowerCase()} yet</h3>
+          <p>Add one above to start building this part of the bank.</p>
+        </div>
+      )}
       {bank.questions
         .filter((q) => q.type === tab)
         .map((q) => (
-          <details key={q.id}>
+          <details className="accordion-item" key={q.id}>
             <summary>
-              {q.introduction ? 'Introduction · ' : ''}
-              {q.text} {!q.active ? '(inactive)' : ''}
+              <span>
+                {q.introduction && <Badge tone="on">Introduction</Badge>} {q.text}
+              </span>
+              <Badge tone={q.active ? 'on' : 'off'}>{q.active ? 'Active' : 'Inactive'}</Badge>
             </summary>
-            <p>
-              {q.type === 'cross'
-                ? `Parent: ${majors.find((m) => m.id === q.parent_id)?.text || 'Missing'}`
-                : q.type === 'major'
-                  ? `${bank.questions.filter((c) => c.type === 'cross' && c.parent_id === q.id && c.active).length}/5 active cross-questions`
-                  : ''}
-            </p>
-            <p>
-              {q.points.length} standard points · Version {q.version}
-            </p>
-            <ul>
-              {q.points.map((p) => (
-                <li key={p.id}>
-                  {p.text}
-                  {p.alternatives && ` — Alternatives: ${p.alternatives}`}
-                </li>
-              ))}
-            </ul>
-            <Button secondary disabled={busy} onClick={() => setEdit(structuredClone(q))}>
-              Edit
-            </Button>
-            <Button
-              secondary
-              disabled={busy}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Delete this question and its standard? Existing interviews keep their snapshots.',
-                  )
-                )
-                  void perform(() =>
-                    api(`/standards-bank/questions/${q.id}`, 'DELETE', { revision: bank.revision }),
-                  );
-              }}
-            >
-              Delete
-            </Button>
+            <div className="accordion-body">
+              <p>
+                {q.type === 'cross'
+                  ? `Parent: ${majors.find((m) => m.id === q.parent_id)?.text || 'Missing'}`
+                  : q.type === 'major'
+                    ? `${bank.questions.filter((c) => c.type === 'cross' && c.parent_id === q.id && c.active).length}/5 active cross-questions`
+                    : ''}
+              </p>
+              <p>
+                {q.points.length} standard points · Version {q.version}
+              </p>
+              <ul>
+                {q.points.map((p) => (
+                  <li key={p.id}>
+                    {p.text}
+                    {p.alternatives && ` — Alternatives: ${p.alternatives}`}
+                  </li>
+                ))}
+              </ul>
+              <div className="actions">
+                <Button secondary disabled={busy} onClick={() => setEdit(structuredClone(q))}>
+                  Edit
+                </Button>
+                <Button
+                  secondary
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Delete this question and its standard? Existing interviews keep their snapshots.',
+                      )
+                    )
+                      void perform(() =>
+                        api(`/standards-bank/questions/${q.id}`, 'DELETE', { revision: bank.revision }),
+                      );
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
           </details>
         ))}
     </section>

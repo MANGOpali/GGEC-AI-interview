@@ -218,8 +218,9 @@ export function createApp({
     async (req, _res, next) => {
       if (!transcriber) fail(503, 'Speech service is not configured. Type your answer.');
       const s = await session(req);
-      if (req.user.role !== 'student' || s.student_id !== req.user.id)
-        fail(403, 'Only the student may transcribe an answer.');
+      req.currentSession = s;
+      if (s.student_id !== req.user.id)
+        fail(403, 'Only the interview owner may transcribe an answer.');
       if (s.retained_at || !['MAIN_QUESTION', 'FOLLOW_UP'].includes(s.state))
         fail(409, 'This interview is not accepting recordings.');
       if (req.get('X-Audio-Consent') !== 'groq-v1')
@@ -240,7 +241,8 @@ export function createApp({
       if (res.destroyed) return;
       req.audioProcessing = true;
       try {
-        const result = await transcriber.transcribeAudio(req.body, type);
+        const question = currentQuestion(req.currentSession);
+        const result = await transcriber.transcribeAudio(req.body, type, question?.text);
         res.json(result);
       } finally {
         transcribing.delete(req.user.id);
@@ -362,6 +364,7 @@ export function createApp({
           student_id: s.student_id,
           state: s.state,
           practice_category: s.practice_category || null,
+          is_staff_test: !!s.is_staff_test,
           started_at: s.started_at,
           completed_at: s.completed_at,
           report: s.report
@@ -376,10 +379,16 @@ export function createApp({
     res.json(rows.sort((a, b) => b.started_at.localeCompare(a.started_at)));
   });
   app.post('/api/sessions', async (req, res) => {
-    if (req.user.role !== 'student') fail(403, 'Student access required.');
+    const isStaffTest = staff(req.user);
+    if (req.user.role !== 'student' && !isStaffTest) fail(403, 'Student access required.');
     if (req.body?.consent !== true) fail(400, 'Explicit consent is required.');
-    const p = await repo.profile(req.user.id);
-    if (!p) fail(409, 'Complete your student profile first.');
+    let p = await repo.profile(req.user.id);
+    if (!p) {
+      // Staff testing the interview flow on their own account have no student profile;
+      // real students still must complete theirs before starting an attempt.
+      if (!isStaffTest) fail(409, 'Complete your student profile first.');
+      p = {};
+    }
     const category = z.string().trim().min(1).max(80).optional().parse(req.body.category);
     const qs = (await repo.list('questions'))
       .filter((q) => q.active && q.is_main_question && (!category || q.category === category))
@@ -400,6 +409,7 @@ export function createApp({
       created.standard_bank_revision = bank.revision;
     }
     created.practice_category = category || null;
+    if (isStaffTest) created.is_staff_test = true;
     res.status(201).json(student(await repo.saveSession(created, -1)));
   });
   app.get('/api/sessions/:id', async (req, res) => {
@@ -442,8 +452,7 @@ export function createApp({
         })
         .parse(req.body);
       let s = await session(req);
-      if (s.student_id !== req.user.id || req.user.role !== 'student')
-        fail(403, 'Only the student may submit answers.');
+      if (s.student_id !== req.user.id) fail(403, 'Only the interview owner may submit answers.');
       if (s.answers.some((a) => a.request_id === input.request_id)) return res.json(student(s));
       if (s.version !== input.version) fail(409, 'Interview changed. Reload the saved attempt.');
       if (!['MAIN_QUESTION', 'FOLLOW_UP'].includes(s.state))
@@ -454,6 +463,8 @@ export function createApp({
       try {
         if (!deferScoring)
           evaluation = await llm.evaluateAnswer({
+            rubric_version: s.rubric_version,
+            grammar_allowance: s.grammar_allowance,
             profile: s.profile_snapshot,
             question: currentQuestion(s),
             answer: input.transcript,

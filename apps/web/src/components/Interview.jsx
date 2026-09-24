@@ -7,7 +7,17 @@ import { Button, Title } from './common';
 import Report from './Report';
 import QuestionAngles from './QuestionAngles';
 
-export default function Interview({ initial, profile, staff, onError, onUpdate, onProfile }) {
+// Testing only: disables the auto-stop-at-timeout behavior below. Flip back to true to restore it.
+const ENFORCE_TIME_LIMITS = false;
+export default function Interview({
+  initial,
+  profile,
+  staff,
+  initialCategory,
+  onError,
+  onUpdate,
+  onProfile,
+}) {
   const [s, setS] = useState(initial),
     [consent, setConsent] = useState(false),
     [transcript, setTranscript] = useState(''),
@@ -17,7 +27,11 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
   const [micStatus, setMicStatus] = useState(''),
     [interim, setInterim] = useState(''),
     [micError, setMicError] = useState('');
-  const [category, setCategory] = useState(''),
+  // A staff member starting a fresh attempt (no pre-loaded session) is testing the interview
+  // themselves and should get the same live question flow a student gets, not the read-only
+  // report view staff see when opening an existing student's session.
+  const [testMode] = useState(staff && !initial);
+  const [category, setCategory] = useState(initialCategory || ''),
     [categories, setCategories] = useState([]);
   const recorder = useRef(null),
     requestId = useRef(null);
@@ -27,8 +41,10 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
   const [spokenSeconds, setSpokenSeconds] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null),
     [timeUp, setTimeUp] = useState(false);
+  const [submitElapsed, setSubmitElapsed] = useState(0);
+  const submitTimer = useRef(null);
   const active =
-    s && s.state !== 'REPORT' && s.state !== 'EXPIRED' && !staff
+    s && s.state !== 'REPORT' && s.state !== 'EXPIRED' && (!staff || testMode)
       ? s.pending_follow_up || s.questions[s.index]
       : null;
   const clock =
@@ -49,7 +65,7 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
         ? Math.max(0, Math.round(total - (Date.now() - started) / 1000))
         : total;
       setSecondsLeft(flexible ? total - left : left);
-      if (left === 0 && !done) {
+      if (left === 0 && !done && ENFORCE_TIME_LIMITS) {
         done = true;
         setTimeUp(true);
         recorder.current?.stop();
@@ -74,6 +90,7 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
     () => () => {
       recorder.current?.cancel();
       voice.stop();
+      clearInterval(submitTimer.current);
     },
     [],
   );
@@ -132,6 +149,8 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
     onError('');
     setPhase(transition(phase, 'SUBMIT'));
     requestId.current ??= crypto.randomUUID();
+    setSubmitElapsed(0);
+    submitTimer.current = setInterval(() => setSubmitElapsed((s) => s + 1), 1000);
     try {
       let next,
         version = s.version;
@@ -191,6 +210,7 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
         }
       }
     } finally {
+      clearInterval(submitTimer.current);
       setBusy(false);
     }
   }
@@ -269,7 +289,7 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
             retention policy (default 90 days), except when held for review. Practice feedback does
             not predict an admission or visa decision.
           </p>
-          {!profile ? (
+          {!profile && !staff ? (
             <Button onClick={onProfile}>
               Complete your profile first
               <ArrowRight size={16} />
@@ -454,18 +474,33 @@ export default function Interview({ initial, profile, staff, onError, onUpdate, 
               </Button>
             )}
             <Button disabled={busy || phase === 'RECORDING' || !transcript.trim()} onClick={submit}>
-              {busy ? 'Saving your answer…' : 'Submit answer'}
-              <ArrowRight size={17} />
+              {busy ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  {`Evaluating… ${submitElapsed}s`}
+                </>
+              ) : (
+                'Submit answer'
+              )}
+              {!busy && <ArrowRight size={17} />}
             </Button>
           </div>
+          {busy && phase !== 'RECORDING' && (
+            <p className="alert" role="status" aria-live="polite">
+              <span className="spinner" aria-hidden="true" /> The AI is reading and scoring your
+              answer now — this can take up to a minute or two. Please don’t close this page.
+            </p>
+          )}
           <p role="status" className="muted">
             {phase === 'RECORDING'
               ? micStatus
-              : timeUp
-                ? 'Time is up for this question. Submit your answer when you’re ready.'
-                : !speech.supported()
-                  ? 'Voice input is unavailable in this browser. You can type your answer.'
-                  : 'Your transcript is saved when you submit. You can resume saved attempts from your Profile.'}
+              : busy
+                ? ''
+                : timeUp
+                  ? 'Time is up for this question. Submit your answer when you’re ready.'
+                  : !speech.supported()
+                    ? 'Voice input is unavailable in this browser. You can type your answer.'
+                    : 'Your transcript is saved when you submit. You can resume saved attempts from your Profile.'}
           </p>
         </section>
         <aside className="card tips">

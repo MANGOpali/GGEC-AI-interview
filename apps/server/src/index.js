@@ -29,7 +29,11 @@ const app = createApp({
   serveDir,
   supabaseConnectSrc: process.env.SUPABASE_URL,
   evaluator,
-  deferScoring: true,
+  // Evaluate synchronously so the model can decide follow_up_needed in real time and the
+  // interview can branch into a live adaptive cross-question. Trades instant answer saves
+  // for a ~2-5s wait per answer while the model responds; failures still fall back to the
+  // background evaluator queue below.
+  deferScoring: false,
   transcriber: createTranscriber(process.env),
 });
 const host = config.repo.kind === 'demo' ? '127.0.0.1' : process.env.HOST || '0.0.0.0';

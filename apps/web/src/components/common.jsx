@@ -1,4 +1,4 @@
-import { ArrowUpRight, ClipboardList } from 'lucide-react';
+import { ArrowUpRight, ClipboardList, Search } from 'lucide-react';
 
 export const label = (s) => s.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase());
 export const date = (s) =>
@@ -53,12 +53,45 @@ export function Title({ eyebrow, title, description }) {
     </div>
   );
 }
+export function Badge({ tone = 'muted', children }) {
+  return <span className={`badge ${tone}`}>{children}</span>;
+}
+export function SearchInput({ value, onChange, placeholder = 'Search…' }) {
+  return (
+    <label className="search-input">
+      <Search size={15} />
+      <input
+        type="search"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={placeholder}
+      />
+    </label>
+  );
+}
+export function Tabs({ options, value, onChange }) {
+  return (
+    <div className="tabs">
+      {options.map(([id, name]) => (
+        <button
+          key={id}
+          type="button"
+          className={value === id ? 'active' : ''}
+          onClick={() => onChange(id)}
+        >
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+}
 export function Stat({ icon: Icon, title, value, note }) {
   return (
     <div className="card stat">
       <div>
         <span>{title}</span>
-        <Icon size={18} />
+        {Icon && <Icon size={18} />}
       </div>
       <strong>{value}</strong>
       <small>{note}</small>

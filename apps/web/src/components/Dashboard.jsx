@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Check,
   ClipboardList,
+  Clock,
   GraduationCap,
   Mic,
   ShieldCheck,
@@ -11,9 +12,70 @@ import {
 } from 'lucide-react';
 import { AttemptList, Stat, date } from './common';
 
+function StaffDashboard({ user, sessions, openSession }) {
+  // Staff's own test-interview attempts aren't student work; keep them out of student stats/list.
+  const studentSessions = sessions.filter((s) => !s.is_staff_test);
+  const complete = studentSessions.filter((s) => s.state === 'REPORT'),
+    scored = complete
+      .filter((s) => !s.practice_category && s.report?.overall_score != null)
+      .map((s) => s.report.overall_score),
+    avgScore = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null,
+    awaitingEvaluation = complete.filter((s) => s.report?.overall_score == null).length;
+  return (
+    <>
+      <div className="page-title">
+        <div>
+          <span className="eyebrow">STAFF WORKSPACE</span>
+          <h1>Your student workspace</h1>
+          <p>Support progress with thoughtful, evidence-based feedback.</p>
+        </div>
+        <span className="date">{date(new Date())}</span>
+      </div>
+      <div className="stats">
+        <Stat
+          icon={ClipboardList}
+          title="Completed by your students"
+          value={complete.length}
+          note="Across all assigned/visible students"
+        />
+        <Stat
+          icon={Trophy}
+          title="Average score"
+          value={avgScore == null ? '—' : `${avgScore}/100`}
+          note={avgScore == null ? 'Available once attempts are evaluated' : 'Across evaluated full interviews'}
+        />
+        <Stat
+          icon={Clock}
+          title="Awaiting evaluation"
+          value={awaitingEvaluation}
+          note={awaitingEvaluation ? 'May need a follow-up check' : 'All caught up'}
+        />
+      </div>
+      <section className="card">
+        <div className="section-title">
+          <h2>Recent student attempts</h2>
+          <span className="pill">{studentSessions.length} attempts</span>
+        </div>
+        {studentSessions.length ? (
+          <AttemptList sessions={studentSessions.slice(0, 10)} open={openSession} />
+        ) : (
+          <div className="empty">
+            <span className="empty-icon">
+              <Mic size={26} />
+            </span>
+            <h3>No student attempts yet</h3>
+            <p>Once your assigned students begin practicing, their attempts will appear here.</p>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
 export default function Dashboard({ user, profile, sessions, onStart, onProfile, openSession }) {
-  const staff = user.role !== 'student',
-    complete = sessions.filter((s) => s.state === 'REPORT'),
+  if (user.role !== 'student')
+    return <StaffDashboard user={user} sessions={sessions} openSession={openSession} />;
+  const complete = sessions.filter((s) => s.state === 'REPORT'),
     scores = complete
       .filter((s) => !s.practice_category)
       .map((s) => s.report?.overall_score)
@@ -23,16 +85,8 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
       <div className="page-title">
         <div>
           <span className="eyebrow">YOUR PREPARATION, ONE STEP AT A TIME</span>
-          <h1>
-            {staff
-              ? 'Your student workspace'
-              : `Welcome${user?.name ? ', ' + user.name.split(' ')[0] : ''}.`}
-          </h1>
-          <p>
-            {staff
-              ? 'Support progress with thoughtful, evidence-based feedback.'
-              : 'Make your next interview feel a little more familiar.'}
-          </p>
+          <h1>Welcome{user?.name ? ', ' + user.name.split(' ')[0] : ''}.</h1>
+          <p>Make your next interview feel a little more familiar.</p>
         </div>
         <span className="date">{date(new Date())}</span>
       </div>
@@ -50,7 +104,7 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
             Practice a realistic interview, one question at a time.
           </p>
           <button className="btn cream" onClick={onStart}>
-            {staff ? 'Review student progress' : 'Start a practice interview'}
+            Start a practice interview
             <ArrowUpRight size={18} />
           </button>
           <small>
@@ -106,7 +160,7 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
       <div className="dashboard-grid">
         <section className="card">
           <div className="section-title">
-            <h2>{staff ? 'Recent student attempts' : 'Your recent practice'}</h2>
+            <h2>Your recent practice</h2>
             <span className="pill">{sessions.length} attempts</span>
           </div>
           {sessions.length ? (
@@ -144,12 +198,10 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
               </div>
             </div>
           ))}
-          {!staff && (
-            <button className="text-button" onClick={onProfile}>
-              {profile ? 'Review your profile' : 'Complete your profile'}
-              <ArrowUpRight size={16} />
-            </button>
-          )}
+          <button className="text-button" onClick={onProfile}>
+            {profile ? 'Review your profile' : 'Complete your profile'}
+            <ArrowUpRight size={16} />
+          </button>
         </section>
       </div>
     </>

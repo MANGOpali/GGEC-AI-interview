@@ -1,0 +1,6 @@
+
+Usage : /usr/bin/docx2txt <file.docx>
+
+	<file.docx> can also specify a directory holding the unzipped
+	content of a .docx file.
+
