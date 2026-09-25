@@ -32,4 +32,8 @@ const app = createApp({
   transcriber: createTranscriber(process.env),
 });
 
+// This project is API-only (no serveDir); send anyone landing on the bare root to the
+// actual student-facing app instead of Express's default 404.
+app.get('/', (_req, res) => res.redirect(process.env.WEB_APP_URL || 'https://ggec-ai-interview-web.vercel.app/'));
+
 export default app;
