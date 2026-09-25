@@ -46,6 +46,12 @@ for (const role of ['student', 'counsellor', 'admin']) {
     });
     if (error) throw error;
     existing = data.user;
+  } else {
+    // The account already exists: the generated password above is meaningless unless we
+    // actually apply it, so reset it here rather than printing a password that silently
+    // does nothing.
+    const { error } = await client.auth.admin.updateUserById(existing.id, { password });
+    if (error) throw error;
   }
   const { error: setRole } = await client
     .from('users')
