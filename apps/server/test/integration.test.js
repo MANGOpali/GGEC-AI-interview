@@ -172,15 +172,11 @@ test('idempotency and optimistic concurrency prevent duplicate or out-of-order a
 });
 const evaluation = {
   ...Object.fromEntries(metrics.map((k) => [k, k === 'accuracy' ? null : 8])),
-  flags: [],
   follow_up_needed: true,
   follow_up_question: 'How will the shorter course affect your budget?',
-  reasoning: 'Staff-only evidence note',
   feedback: 'Explain the cost comparison.',
-  missing_information: [],
-  contradictions: [],
 };
-test('semantic provider context, dynamic follow-up cap and student note redaction', async (t) => {
+test('semantic provider context and dynamic follow-up cap', async (t) => {
   let contexts = [];
   const llm = {
     name: 'test',
@@ -210,12 +206,6 @@ test('semantic provider context, dynamic follow-up cap and student note redactio
   assert.equal(s.state, 'MAIN_QUESTION');
   assert.equal(s.answers[1].is_followup, true);
   assert.equal(s.answers[1].parent_answer_id, s.answers[0].id);
-  assert(!JSON.stringify(s).includes(evaluation.reasoning));
-  assert(
-    JSON.stringify((await as('counsellor').get(`/sessions/${s.id}`)).body).includes(
-      evaluation.reasoning,
-    ),
-  );
 });
 test('provider failures preserve transcripts without manufacturing scores', async (t) => {
   const { as } = await setup(t, {

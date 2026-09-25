@@ -80,13 +80,9 @@ export const resourceSchema = z.object({
 export const evaluationSchema = z
   .object({
     ...Object.fromEntries(metrics.map((k) => [k, z.number().min(0).max(10).nullable()])),
-    flags: z.array(z.enum(['vague', 'formulaic_indicator', 'contradictory', 'incomplete'])).max(4),
     follow_up_needed: z.boolean(),
     follow_up_question: z.string().trim().min(5).max(500).nullable(),
-    reasoning: z.string().max(2000),
     feedback: z.string().max(2000),
-    missing_information: z.array(z.string().max(500)).max(10),
-    contradictions: z.array(z.string().max(500)).max(10),
   })
   .refine((x) => !x.follow_up_needed || !!x.follow_up_question, {
     message: 'Follow-up question required',
@@ -100,8 +96,6 @@ export const reportSchema = z.object({
   strong_areas: z.array(z.string().max(200)).max(20),
   weak_areas: z.array(z.string().max(200)).max(20),
   poor_answers: z.array(z.object({ answer_id: z.string(), question: z.string().max(500) })).max(20),
-  missing_information: z.array(z.string().max(500)).max(20),
-  contradictions: z.array(z.string().max(500)).max(20),
   recommendations: z.array(z.string().max(1000)).max(30),
 });
 export function fullyEvaluated(s) {
@@ -309,8 +303,6 @@ export function buildReport(s) {
     poor_answers: evaluated
       .filter((a) => scoreAnswer(a.evaluation) < 50)
       .map((a) => ({ answer_id: a.id, question: a.question_text })),
-    missing_information: [...new Set(evaluated.flatMap((a) => a.evaluation.missing_information))],
-    contradictions: [...new Set(evaluated.flatMap((a) => a.evaluation.contradictions))],
     recommendations: evaluated.map((a) => a.evaluation.feedback).filter(Boolean),
     notice: reportNotice,
   };
@@ -322,7 +314,5 @@ export function mergeReport(session, narrative) {
     ...narrative,
     ...computed,
     recommendations: narrative?.recommendations ?? computed.recommendations,
-    missing_information: narrative?.missing_information ?? computed.missing_information,
-    contradictions: narrative?.contradictions ?? computed.contradictions,
   };
 }

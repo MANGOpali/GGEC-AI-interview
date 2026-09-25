@@ -1,9 +1,7 @@
 import Coaching from './Coaching';
 import EvaluationProgress from './EvaluationProgress';
 import { BookOpen, Download, ShieldCheck, Trophy } from 'lucide-react';
-import { Button, Stat, Title, date, label } from './common';
-const duration = (seconds) =>
-  seconds == null ? null : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+import { Button, Stat, Title, date } from './common';
 
 export default function Report({ session: s, staff, onHold, onUpdate, onPractice }) {
   const r = s.report;
@@ -18,10 +16,6 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
   function download() {
     const sanitized = structuredClone(s);
     delete sanitized.profile_snapshot;
-    if (!staff)
-      sanitized.answers.forEach((a) => {
-        if (a.evaluation) delete a.evaluation.reasoning;
-      });
     const blob = new Blob([JSON.stringify(sanitized, null, 2)], { type: 'application/json' }),
       url = URL.createObjectURL(blob),
       a = document.createElement('a');
@@ -128,9 +122,6 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
               {[
                 ['Focus areas', r.weak_areas],
                 ['Questions to revisit', r.poor_answers.map((x) => x.question)],
-                ['Missing information', r.missing_information],
-                ['Possible contradictions', r.contradictions],
-                ['Recommended improvements', r.recommendations],
               ].map(
                 ([t, items]) =>
                   items.length > 0 && (
@@ -154,116 +145,6 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
           <Coaching session={s} />
         </details>
       )}
-      <section className="card transcript-review">
-        <h2>Question-by-question review</h2>
-        {s.answers.length === 0 && <p>No answers have been submitted yet.</p>}
-        {s.answers.map((a, i) => (
-          <details key={a.id}>
-            <summary>
-              {String(i + 1).padStart(2, '0')} · {a.question_text}{' '}
-              {a.is_followup && <span className="pill">Follow-up</span>}
-            </summary>
-            <p className="transcript-text">
-              {a.transcript ?? 'Transcript removed by the retention policy.'}
-            </p>
-            <p>{a.evaluation?.feedback || 'No AI evaluation available.'}</p>
-            <p className="muted">
-              <b>
-                Answer score:{' '}
-                {r?.answer_scores?.find((x) => x.answer_id === a.id)?.score ??
-                  a.answer_score ??
-                  'Not evaluated'}
-                {(r?.answer_scores?.find((x) => x.answer_id === a.id)?.score ?? a.answer_score) !=
-                null
-                  ? '/100'
-                  : ''}
-              </b>
-            </p>
-            {a.duration_seconds != null && (
-              <p className="muted">
-                <b>Time used:</b> {duration(a.duration_seconds)}
-                {a.time_limit_seconds != null && ` of ${duration(a.time_limit_seconds)}`}
-                {a.over_time ? ' · over the limit' : ' · within the limit'}
-              </p>
-            )}
-            {a.duration_flag && (
-              <p className="muted">
-                Duration: {label(a.duration_flag)}
-                {a.spoken_seconds != null
-                  ? ` · ${Math.round(a.spoken_seconds)} recorded seconds (reported by client)`
-                  : ''}
-                . Timing does not change marks.
-              </p>
-            )}
-            {a.evaluation?.scoring_version === 'ggec-standards-v3' && (
-              <>
-                <p>{a.evaluation.assessment_basis}</p>
-                <dl>
-                  {['standard_coverage', 'fluency_clarity', 'grammar', 'overall_correctness'].map(
-                    (k) => (
-                      <div key={k}>
-                        <dt>{label(k)}</dt>
-                        <dd>{Number(a.evaluation[k]).toFixed(1)}/10</dd>
-                      </div>
-                    ),
-                  )}
-                </dl>
-                <p>
-                  Sentences flagged for grammar: {a.evaluation.grammar_error_sentence_ids.length}/
-                  {a.evaluation.sentence_count} ({a.evaluation.grammar_error_percent.toFixed(1)}%).
-                  Allowance: {a.evaluation.grammar_allowance}%.
-                </p>
-                <ul>
-                  {a.evaluation.point_results.map((p) => (
-                    <li key={p.point_id}>
-                      <b>
-                        {p.credit === 1
-                          ? 'Covered'
-                          : p.credit === 0.5
-                            ? 'Partly covered'
-                            : 'Missing or incorrect'}
-                        :
-                      </b>{' '}
-                      {p.point_text} — {p.evidence}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {a.evaluation && a.evaluation.scoring_version !== 'ggec-standards-v3' && (
-              <dl>
-                {[
-                  'relevance',
-                  'accuracy',
-                  'course_knowledge',
-                  'university_research',
-                  'financial_knowledge',
-                  'career_credibility',
-                  'consistency_with_profile',
-                  'completeness',
-                  'clarity_communication',
-                ].map((metric) => (
-                  <div key={metric}>
-                    <dt>{label(metric)}</dt>
-                    <dd>
-                      {a.evaluation[metric] == null ? 'Not assessed' : `${a.evaluation[metric]}/10`}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {a.evaluation?.flags?.length > 0 && (
-              <p className="muted">Indicators: {a.evaluation.flags.map(label).join(', ')}</p>
-            )}
-            {staff && a.evaluation?.reasoning && (
-              <div className="alert">
-                <b>Counsellor note</b>
-                <p>{a.evaluation.reasoning}</p>
-              </div>
-            )}
-          </details>
-        ))}
-      </section>
     </>
   );
 }

@@ -154,7 +154,6 @@ export function createApp({
     }
     out.answers = out.answers.map((a) => {
       delete a.human_reviews;
-      if (a.evaluation) delete a.evaluation.reasoning;
       return a;
     });
     return out;
