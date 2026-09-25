@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "redirects": [
+    { "source": "/", "destination": "https://ggec-ai-interview-web.vercel.app/", "permanent": false }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }
