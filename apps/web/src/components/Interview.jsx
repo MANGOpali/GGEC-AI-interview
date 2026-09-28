@@ -35,7 +35,6 @@ export default function Interview({
     [categories, setCategories] = useState([]);
   const recorder = useRef(null),
     requestId = useRef(null);
-  const [audioConsent, setAudioConsent] = useState(false);
   const [retryAudio, setRetryAudio] = useState(null);
   const [rules, setRules] = useState(null);
   const [spokenSeconds, setSpokenSeconds] = useState(null);
@@ -110,7 +109,6 @@ export default function Interview({
   }
   function record() {
     if (timeUp) return;
-    if (speech.provider() === 'groq' && !audioConsent) return;
     onError('');
     setMicError('');
     setRetryAudio(null);
@@ -423,22 +421,10 @@ export default function Interview({
             </div>
           )}
           <div className="actions">
-            {speech.provider() === 'groq' && (
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={audioConsent}
-                  disabled={phase === 'RECORDING'}
-                  onChange={(e) => setAudioConsent(e.target.checked)}
-                />
-                I agree to send my recording to Groq for transcription. Temporary audio is kept in
-                this page for retry until submitted, replaced or closed.
-              </label>
-            )}
             {retryAudio && phase !== 'RECORDING' && (
               <Button
                 secondary
-                disabled={busy || !audioConsent}
+                disabled={busy}
                 onClick={() => {
                   setMicError('');
                   setPhase('RECORDING');
@@ -461,12 +447,7 @@ export default function Interview({
             ) : (
               <Button
                 secondary
-                disabled={
-                  busy ||
-                  !speech.supported() ||
-                  timeUp ||
-                  (speech.provider() === 'groq' && !audioConsent)
-                }
+                disabled={busy || !speech.supported() || timeUp}
                 onClick={record}
               >
                 <Mic size={17} />
