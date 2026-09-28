@@ -775,6 +775,15 @@ select {
   font-size: 14px;
   background: #fafcff;
 }
+.camera-preview {
+  width: 100%;
+  min-height: 220px;
+  max-height: 360px;
+  border-radius: 6px;
+  background: #111a2e;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
 .tips {
   align-self: start;
 }

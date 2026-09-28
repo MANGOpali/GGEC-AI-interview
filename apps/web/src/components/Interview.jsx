@@ -37,6 +37,9 @@ export default function Interview({
     requestId = useRef(null);
   const [retryAudio, setRetryAudio] = useState(null);
   const [rules, setRules] = useState(null);
+  const videoRef = useRef(null);
+  const videoStream = useRef(null);
+  const [cameraError, setCameraError] = useState('');
   const [spokenSeconds, setSpokenSeconds] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null),
     [timeUp, setTimeUp] = useState(false);
@@ -93,6 +96,31 @@ export default function Interview({
     },
     [],
   );
+  // Camera preview only: shown while recording so the student can see themselves, never
+  // captured or uploaded. Audio-only recording/transcription (above) is unaffected.
+  useEffect(() => {
+    if (phase !== 'RECORDING') return;
+    let cancelled = false;
+    setCameraError('');
+    navigator.mediaDevices
+      ?.getUserMedia({ video: true, audio: false })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        videoStream.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch(() => {
+        if (!cancelled) setCameraError('Camera unavailable. Recording continues audio-only.');
+      });
+    return () => {
+      cancelled = true;
+      videoStream.current?.getTracks().forEach((t) => t.stop());
+      videoStream.current = null;
+    };
+  }, [phase]);
   async function start() {
     setBusy(true);
     onError('');
@@ -395,25 +423,28 @@ export default function Interview({
           </div>
           <span className="eyebrow">{q.category}</span>
           <h2 className="question">{q.text}</h2>
-          <label className="field">
-            Your answer
-            <textarea
-              className="answer"
-              placeholder="Speak or type your answer here. Review it before submitting."
-              value={transcript}
-              disabled={busy || phase === 'RECORDING'}
-              onChange={(e) => {
-                setTranscript(e.target.value);
-                requestId.current = null;
-                setPhase('TRANSCRIPTION');
-              }}
-              maxLength={12000}
-            />
-          </label>
-          {interim && (
-            <p className="alert" aria-live="polite">
-              <b>Live transcript:</b> {interim}
-            </p>
+          {phase === 'RECORDING' ? (
+            <div className="field">
+              Your answer
+              <video ref={videoRef} className="camera-preview" autoPlay muted playsInline />
+              {cameraError && <p className="alert">{cameraError}</p>}
+            </div>
+          ) : (
+            <label className="field">
+              Your answer
+              <textarea
+                className="answer"
+                placeholder="Speak or type your answer here. Review it before submitting."
+                value={transcript}
+                disabled={busy}
+                onChange={(e) => {
+                  setTranscript(e.target.value);
+                  requestId.current = null;
+                  setPhase('TRANSCRIPTION');
+                }}
+                maxLength={12000}
+              />
+            </label>
           )}
           {micError && (
             <div className="alert error" role="alert">
