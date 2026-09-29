@@ -434,6 +434,12 @@ export default function Interview({
             <video ref={videoRef} autoPlay muted playsInline />
             {cameraError && <p className="camera-tile-error">{cameraError}</p>}
             <span className="camera-tile-label">Camera preview only — never recorded or stored</span>
+            {phase === 'RECORDING' && (
+              <span className="camera-tile-rec">
+                <span className="camera-tile-rec-dot" aria-hidden="true" />
+                Recording
+              </span>
+            )}
           </div>
           {micError && (
             <div className="alert error" role="alert">
