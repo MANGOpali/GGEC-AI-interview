@@ -110,6 +110,28 @@ export default function Interview({
     videoRef.current = el;
     if (el && videoStream.current) el.srcObject = videoStream.current;
   };
+  const describeCameraError = (err) =>
+    err?.name === 'NotAllowedError'
+      ? 'Camera permission was denied. Allow camera access in your browser, then reload the page.'
+      : err?.name === 'NotFoundError'
+        ? 'No camera was found on this device.'
+        : err?.name === 'NotReadableError'
+          ? 'Your camera is already in use by another app or browser tab. Close it and reload.'
+          : 'Camera unavailable. You can still record audio.';
+  function retryCamera() {
+    if (videoStream.current) return;
+    setCameraError('');
+    navigator.mediaDevices
+      ?.getUserMedia({ video: true, audio: false })
+      .then((stream) => {
+        videoStream.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch((err) => {
+        console.error('Camera error:', err);
+        setCameraError(describeCameraError(err));
+      });
+  }
   useEffect(() => {
     const live = s && s.state !== 'REPORT' && s.state !== 'EXPIRED';
     if (!live) {
@@ -133,24 +155,18 @@ export default function Interview({
       .catch((err) => {
         if (cancelled) return;
         console.error('Camera error:', err);
-        setCameraError(
-          err?.name === 'NotAllowedError'
-            ? 'Camera permission was denied. Allow camera access in your browser, then reload the page.'
-            : err?.name === 'NotFoundError'
-              ? 'No camera was found on this device.'
-              : err?.name === 'NotReadableError'
-                ? 'Your camera is already in use by another app or browser tab. Close it and reload.'
-                : 'Camera unavailable. You can still record audio.',
-        );
+        setCameraError(describeCameraError(err));
       });
     return () => {
       cancelled = true;
     };
   }, [s?.state]);
   // Demo identity-check ritual only: no detection, nothing captured or stored. Mirrors the
-  // real interview's opening ask without doing any actual document verification.
+  // real interview's opening ask without doing any actual document verification. Auto-advance
+  // only runs while the camera is actually working -- if it errors, this pauses instead of
+  // silently sailing through to the interview as if a check happened.
   useEffect(() => {
-    if (idChecked) return;
+    if (idChecked || cameraError) return;
     voice.speak('Please show your passport to the camera.');
     const id = setInterval(() => {
       setIdCountdown((n) => {
@@ -163,7 +179,7 @@ export default function Interview({
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [idChecked]);
+  }, [idChecked, cameraError]);
   async function start() {
     setBusy(true);
     onError('');
@@ -417,14 +433,25 @@ export default function Interview({
             {cameraError && <p className="camera-tile-error">{cameraError}</p>}
           </div>
           <p className="muted">
-            Hold your passport's photo page (or any ID) steadily inside the frame for a few
-            seconds. Nothing is captured, analyzed or stored — this simply mirrors what the real
-            interview will ask you to do.
+            {cameraError
+              ? "We couldn't access a camera on this device, so this practice step will be skipped. The rest of the interview still works normally — you'll answer by voice recording."
+              : "Hold your passport's photo page (or any ID) steadily inside the frame for a few seconds. Nothing is captured, analyzed or stored — this simply mirrors what the real interview will ask you to do."}
           </p>
-          <Button onClick={() => setIdChecked(true)}>
-            {idCountdown > 0 ? `Continue now (auto in ${idCountdown}s)` : 'Continue to interview'}
-            <ArrowRight size={16} />
-          </Button>
+          <div className="actions" style={{ justifyContent: 'center' }}>
+            {cameraError && (
+              <Button secondary onClick={retryCamera}>
+                Retry camera
+              </Button>
+            )}
+            <Button onClick={() => setIdChecked(true)}>
+              {cameraError
+                ? 'Continue to interview'
+                : idCountdown > 0
+                  ? `Continue now (auto in ${idCountdown}s)`
+                  : 'Continue to interview'}
+              <ArrowRight size={16} />
+            </Button>
+          </div>
         </section>
       </>
     );
