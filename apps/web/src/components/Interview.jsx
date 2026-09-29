@@ -288,7 +288,7 @@ export default function Interview({
               You’ll answer the active questions in your consultancy’s question bank. Each main
               question gives you about two minutes. Answers save immediately; AI scoring runs after
               you finish, without live AI follow-up questions. Recording stops automatically when
-              the time is up, and you can still review and edit your transcript before submitting.
+              the time is up.
             </p>
           )}
           <div className="info-grid">
@@ -299,8 +299,8 @@ export default function Interview({
             </div>
             <div>
               <ShieldCheck />
-              <b>You’re in control</b>
-              <p>Type, or choose to use your microphone.</p>
+              <b>Video, like the real thing</b>
+              <p>Speak on camera, just like a real Pre-CAS interview.</p>
             </div>
           </div>
           <label className="checkbox">
@@ -428,28 +428,13 @@ export default function Interview({
           <div className="progress-track">
             <div style={{ width: `${(s.index / s.questions.length) * 100}%` }} />
           </div>
-          <div className="camera-tile">
+          <span className="eyebrow">{q.category}</span>
+          <h2 className="question">{q.text}</h2>
+          <div className="camera-tile camera-tile-large">
             <video ref={videoRef} autoPlay muted playsInline />
             {cameraError && <p className="camera-tile-error">{cameraError}</p>}
             <span className="camera-tile-label">Camera preview only — never recorded or stored</span>
           </div>
-          <span className="eyebrow">{q.category}</span>
-          <h2 className="question">{q.text}</h2>
-          <label className="field">
-            Your answer
-            <textarea
-              className="answer"
-              placeholder="Speak or type your answer here. Review it before submitting."
-              value={transcript}
-              disabled={busy || phase === 'RECORDING'}
-              onChange={(e) => {
-                setTranscript(e.target.value);
-                requestId.current = null;
-                setPhase('TRANSCRIPTION');
-              }}
-              maxLength={12000}
-            />
-          </label>
           {micError && (
             <div className="alert error" role="alert">
               {micError}
@@ -515,8 +500,8 @@ export default function Interview({
                 : timeUp
                   ? 'Time is up for this question. Submit your answer when you’re ready.'
                   : !speech.supported()
-                    ? 'Voice input is unavailable in this browser. You can type your answer.'
-                    : 'Your transcript is saved when you submit. You can resume saved attempts from your Profile.'}
+                    ? 'Voice recording is unavailable in this browser. Try Chrome, Edge or Safari.'
+                    : 'Your answer is saved when you submit. You can resume saved attempts from your Profile.'}
           </p>
         </section>
         <aside className="card tips">
