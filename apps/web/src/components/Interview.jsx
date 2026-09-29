@@ -93,13 +93,22 @@ export default function Interview({
       recorder.current?.cancel();
       voice.stop();
       clearInterval(submitTimer.current);
+      videoStream.current?.getTracks().forEach((t) => t.stop());
+      videoStream.current = null;
     },
     [],
   );
-  // Camera preview only: shown while recording so the student can see themselves, never
-  // captured or uploaded. Audio-only recording/transcription (above) is unaffected.
+  // Camera preview only: runs continuously through the whole live interview (like a real
+  // video call), independent of recording. Never captured, uploaded or stored. Audio-only
+  // recording/transcription for scoring is a separate getUserMedia call, untouched below.
   useEffect(() => {
-    if (phase !== 'RECORDING') return;
+    const live = s && s.state !== 'REPORT' && s.state !== 'EXPIRED';
+    if (!live) {
+      videoStream.current?.getTracks().forEach((t) => t.stop());
+      videoStream.current = null;
+      return;
+    }
+    if (videoStream.current) return;
     let cancelled = false;
     setCameraError('');
     navigator.mediaDevices
@@ -113,14 +122,12 @@ export default function Interview({
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
       .catch(() => {
-        if (!cancelled) setCameraError('Camera unavailable. Recording continues audio-only.');
+        if (!cancelled) setCameraError('Camera unavailable. You can still record audio or type.');
       });
     return () => {
       cancelled = true;
-      videoStream.current?.getTracks().forEach((t) => t.stop());
-      videoStream.current = null;
     };
-  }, [phase]);
+  }, [s?.state]);
   async function start() {
     setBusy(true);
     onError('');
@@ -421,31 +428,28 @@ export default function Interview({
           <div className="progress-track">
             <div style={{ width: `${(s.index / s.questions.length) * 100}%` }} />
           </div>
+          <div className="camera-tile">
+            <video ref={videoRef} autoPlay muted playsInline />
+            {cameraError && <p className="camera-tile-error">{cameraError}</p>}
+            <span className="camera-tile-label">Camera preview only — never recorded or stored</span>
+          </div>
           <span className="eyebrow">{q.category}</span>
           <h2 className="question">{q.text}</h2>
-          {phase === 'RECORDING' ? (
-            <div className="field">
-              Your answer
-              <video ref={videoRef} className="camera-preview" autoPlay muted playsInline />
-              {cameraError && <p className="alert">{cameraError}</p>}
-            </div>
-          ) : (
-            <label className="field">
-              Your answer
-              <textarea
-                className="answer"
-                placeholder="Speak or type your answer here. Review it before submitting."
-                value={transcript}
-                disabled={busy}
-                onChange={(e) => {
-                  setTranscript(e.target.value);
-                  requestId.current = null;
-                  setPhase('TRANSCRIPTION');
-                }}
-                maxLength={12000}
-              />
-            </label>
-          )}
+          <label className="field">
+            Your answer
+            <textarea
+              className="answer"
+              placeholder="Speak or type your answer here. Review it before submitting."
+              value={transcript}
+              disabled={busy || phase === 'RECORDING'}
+              onChange={(e) => {
+                setTranscript(e.target.value);
+                requestId.current = null;
+                setPhase('TRANSCRIPTION');
+              }}
+              maxLength={12000}
+            />
+          </label>
           {micError && (
             <div className="alert error" role="alert">
               {micError}
