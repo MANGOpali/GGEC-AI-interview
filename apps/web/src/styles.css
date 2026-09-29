@@ -859,6 +859,49 @@ select {
     max-height: 32vh;
   }
 }
+.id-check {
+  max-width: 640px;
+  padding: 35px;
+  text-align: center;
+}
+.id-check-camera {
+  margin-left: auto;
+  margin-right: auto;
+}
+.id-check-frame {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 62%;
+  aspect-ratio: 1.42 / 1;
+  border: 2px dashed rgba(255, 255, 255, 0.65);
+  border-radius: 10px;
+  pointer-events: none;
+  overflow: hidden;
+}
+.id-check-frame::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #d01020, transparent);
+  animation: id-check-scan 2.2s ease-in-out infinite;
+}
+@keyframes id-check-scan {
+  0% {
+    top: 0%;
+  }
+  50% {
+    top: 100%;
+  }
+  100% {
+    top: 0%;
+  }
+}
+.id-check .muted {
+  margin: 18px 0 22px;
+}
 .tips {
   align-self: start;
 }

@@ -40,6 +40,8 @@ export default function Interview({
   const videoRef = useRef(null);
   const videoStream = useRef(null);
   const [cameraError, setCameraError] = useState('');
+  const [idChecked, setIdChecked] = useState(!!initial?.answers?.length);
+  const [idCountdown, setIdCountdown] = useState(5);
   const [spokenSeconds, setSpokenSeconds] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null),
     [timeUp, setTimeUp] = useState(false);
@@ -122,12 +124,29 @@ export default function Interview({
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
       .catch(() => {
-        if (!cancelled) setCameraError('Camera unavailable. You can still record audio or type.');
+        if (!cancelled) setCameraError('Camera unavailable. You can still record audio.');
       });
     return () => {
       cancelled = true;
     };
   }, [s?.state]);
+  // Demo identity-check ritual only: no detection, nothing captured or stored. Mirrors the
+  // real interview's opening ask without doing any actual document verification.
+  useEffect(() => {
+    if (idChecked) return;
+    voice.speak('Please show your passport to the camera.');
+    const id = setInterval(() => {
+      setIdCountdown((n) => {
+        if (n <= 1) {
+          clearInterval(id);
+          setIdChecked(true);
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [idChecked]);
   async function start() {
     setBusy(true);
     onError('');
@@ -135,6 +154,8 @@ export default function Interview({
       const next = await api('/sessions', 'POST', { consent, ...(category ? { category } : {}) });
       setS(next);
       setPhase(next.state);
+      setIdChecked(false);
+      setIdCountdown(5);
       onUpdate(next);
     } catch (e) {
       onError(e.message);
@@ -363,6 +384,32 @@ export default function Interview({
           }
         }}
       />
+    );
+  if (!idChecked)
+    return (
+      <>
+        <Title
+          eyebrow="IDENTITY CHECK"
+          title="Show your passport to the camera"
+          description="Just like the real Pre-CAS interview — this is a practice run only."
+        />
+        <section className="card id-check">
+          <div className="camera-tile camera-tile-large id-check-camera">
+            <video ref={videoRef} autoPlay muted playsInline />
+            <div className="id-check-frame" />
+            {cameraError && <p className="camera-tile-error">{cameraError}</p>}
+          </div>
+          <p className="muted">
+            Hold your passport's photo page (or any ID) steadily inside the frame for a few
+            seconds. Nothing is captured, analyzed or stored — this simply mirrors what the real
+            interview will ask you to do.
+          </p>
+          <Button onClick={() => setIdChecked(true)}>
+            {idCountdown > 0 ? `Continue now (auto in ${idCountdown}s)` : 'Continue to interview'}
+            <ArrowRight size={16} />
+          </Button>
+        </section>
+      </>
     );
   const q = active;
   return (
