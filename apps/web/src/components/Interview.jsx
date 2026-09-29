@@ -103,6 +103,13 @@ export default function Interview({
   // Camera preview only: runs continuously through the whole live interview (like a real
   // video call), independent of recording. Never captured, uploaded or stored. Audio-only
   // recording/transcription for scoring is a separate getUserMedia call, untouched below.
+  // The id-check screen and the main interview screen each mount their own <video> element
+  // (only one at a time), so the stream must be re-attached whenever that node changes --
+  // this callback ref does that on every mount instead of only once at acquisition time.
+  const attachVideo = (el) => {
+    videoRef.current = el;
+    if (el && videoStream.current) el.srcObject = videoStream.current;
+  };
   useEffect(() => {
     const live = s && s.state !== 'REPORT' && s.state !== 'EXPIRED';
     if (!live) {
@@ -123,8 +130,18 @@ export default function Interview({
         videoStream.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
-      .catch(() => {
-        if (!cancelled) setCameraError('Camera unavailable. You can still record audio.');
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Camera error:', err);
+        setCameraError(
+          err?.name === 'NotAllowedError'
+            ? 'Camera permission was denied. Allow camera access in your browser, then reload the page.'
+            : err?.name === 'NotFoundError'
+              ? 'No camera was found on this device.'
+              : err?.name === 'NotReadableError'
+                ? 'Your camera is already in use by another app or browser tab. Close it and reload.'
+                : 'Camera unavailable. You can still record audio.',
+        );
       });
     return () => {
       cancelled = true;
@@ -395,7 +412,7 @@ export default function Interview({
         />
         <section className="card id-check">
           <div className="camera-tile camera-tile-large id-check-camera">
-            <video ref={videoRef} autoPlay muted playsInline />
+            <video ref={attachVideo} autoPlay muted playsInline />
             <div className="id-check-frame" />
             {cameraError && <p className="camera-tile-error">{cameraError}</p>}
           </div>
@@ -478,7 +495,7 @@ export default function Interview({
           <span className="eyebrow">{q.category}</span>
           <h2 className="question">{q.text}</h2>
           <div className="camera-tile camera-tile-large">
-            <video ref={videoRef} autoPlay muted playsInline />
+            <video ref={attachVideo} autoPlay muted playsInline />
             {cameraError && <p className="camera-tile-error">{cameraError}</p>}
             <span className="camera-tile-label">Camera preview only — never recorded or stored</span>
             {phase === 'RECORDING' && (
