@@ -170,6 +170,35 @@ test('idempotency and optimistic concurrency prevent duplicate or out-of-order a
     .post(`/sessions/${s.id}/answers`, { ...input, request_id: randomUUID() })
     .expect(409);
 });
+test('end-early requires ownership and current version, completes and scores the attempt', async (t) => {
+  const { as } = await setup(t);
+  await as().put('/profile', profile);
+  let s = (await as().post('/sessions', { consent: true })).body;
+  s = (
+    await as().post(`/sessions/${s.id}/answers`, {
+      request_id: randomUUID(),
+      version: s.version,
+      transcript: 'Answer',
+    })
+  ).body;
+  await as('counsellor')
+    .post(`/sessions/${s.id}/end-early`, { version: s.version, reason: 'anti_cheat_violation' })
+    .expect(403);
+  await as()
+    .post(`/sessions/${s.id}/end-early`, { version: s.version + 1, reason: 'anti_cheat_violation' })
+    .expect(409);
+  const ended = (
+    await as()
+      .post(`/sessions/${s.id}/end-early`, { version: s.version, reason: 'anti_cheat_violation' })
+      .expect(200)
+  ).body;
+  assert.equal(ended.state, 'REPORT');
+  assert.equal(ended.ended_reason, 'anti_cheat_violation');
+  assert.ok(ended.report);
+  await as()
+    .post(`/sessions/${s.id}/end-early`, { version: ended.version, reason: 'anti_cheat_violation' })
+    .expect(409);
+});
 const evaluation = {
   ...Object.fromEntries(metrics.map((k) => [k, k === 'accuracy' ? null : 8])),
   follow_up_needed: true,

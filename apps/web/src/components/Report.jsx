@@ -48,6 +48,12 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
           </Button>
         )}
       </div>
+      {s.ended_reason === 'anti_cheat_violation' && (
+        <div className="alert error" role="alert">
+          This attempt ended early — the camera repeatedly couldn't confirm the student was
+          facing the screen. Answers already submitted are still scored normally below.
+        </div>
+      )}
       {s.state === 'REPORT' && <EvaluationProgress session={s} onUpdate={onUpdate} />}
       {!staff && r?.weak_areas?.length > 0 && (
         <div className="actions">

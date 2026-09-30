@@ -8,6 +8,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "@supabase/supabase-js": "^2.57.0",
     "lucide-react": "^0.468.0",
     "react": "^19.1.1",

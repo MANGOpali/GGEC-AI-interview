@@ -39,6 +39,7 @@ import {
   applyAnswer,
   fullyEvaluated,
   mergeReport,
+  buildReport,
 } from './domain.js';
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -515,6 +516,22 @@ export function createApp({
       res.json({ ...student(s), warning });
     },
   );
+  app.post('/api/sessions/:id/end-early', async (req, res) => {
+    const { version, reason } = z
+      .object({ version: z.number().int().min(0), reason: z.string().trim().min(1).max(200) })
+      .parse(req.body);
+    let s = await session(req);
+    if (s.student_id !== req.user.id) fail(403, 'Only the interview owner may end this attempt.');
+    if (s.version !== version) fail(409, 'Interview changed. Reload the saved attempt.');
+    if (!['MAIN_QUESTION', 'FOLLOW_UP'].includes(s.state))
+      fail(409, 'This interview is already complete.');
+    s.state = 'REPORT';
+    s.completed_at = new Date().toISOString();
+    s.ended_reason = reason;
+    s.report = buildReport(s);
+    s = await repo.saveSession(s, version);
+    res.json(student(s));
+  });
   app.put('/api/sessions/:id/review-hold', async (req, res) => {
     if (!staff(req.user)) fail(403, 'Staff access required.');
     let s = await session(req);

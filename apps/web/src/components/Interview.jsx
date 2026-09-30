@@ -19,6 +19,7 @@ export default function Interview({
   onProfile,
 }) {
   const [s, setS] = useState(initial),
+    sRef = useRef(initial),
     [consent, setConsent] = useState(false),
     [transcript, setTranscript] = useState(''),
     [phase, setPhase] = useState(initial?.state || 'CONSENT'),
@@ -45,6 +46,14 @@ export default function Interview({
   const idCanvas = useRef(null);
   const idBaseline = useRef(null);
   const idHits = useRef(0);
+  const [violationWarning, setViolationWarning] = useState('');
+  const faceLandmarker = useRef(null);
+  const violationCount = useRef(0);
+  const awayStartedAt = useRef(null);
+  const graceUntil = useRef(0);
+  const endingRef = useRef(false);
+  const MAX_VIOLATIONS = 3;
+  sRef.current = s;
   const [spokenSeconds, setSpokenSeconds] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null),
     [timeUp, setTimeUp] = useState(false);
@@ -220,6 +229,111 @@ export default function Interview({
       clearTimeout(reassure);
     };
   }, [idChecked, cameraError]);
+  // Anti-cheat: head-pose + face-presence heuristic (not literal eye-gaze tracking, and not
+  // identity verification) using a real face-landmark model. Detects the student's face turning
+  // away from -- or disappearing from -- the frame for a sustained period, warns first, and only
+  // ends the interview after repeated violations. Frames are processed in-memory for this check
+  // only; nothing is captured, uploaded or stored. Runs only during live question-answering, once
+  // the ID-check ritual is done, reusing the camera stream that's already active.
+  useEffect(() => {
+    if (!idChecked || cameraError || !active) return;
+    let cancelled = false;
+    violationCount.current = 0;
+    awayStartedAt.current = null;
+    graceUntil.current = 0;
+    import('@mediapipe/tasks-vision')
+      .then(async ({ FaceLandmarker, FilesetResolver }) => {
+        if (cancelled) return;
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm',
+        );
+        if (cancelled) return;
+        faceLandmarker.current = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'CPU',
+          },
+          outputFacialTransformationMatrixes: true,
+          runningMode: 'VIDEO',
+          numFaces: 1,
+        });
+      })
+      .catch((err) => {
+        // No monitoring is safer than blocking the interview if the model/CDN is unreachable.
+        console.error('Anti-cheat model failed to load:', err);
+      });
+    const YAW_THRESHOLD_DEG = 28;
+    const SUSTAINED_MS = 2500;
+    const GRACE_MS = 4000;
+    const tick = setInterval(() => {
+      const fl = faceLandmarker.current;
+      const video = videoRef.current;
+      if (!fl || !video || video.readyState < 2 || !video.videoWidth) return;
+      let result;
+      try {
+        result = fl.detectForVideo(video, performance.now());
+      } catch {
+        return;
+      }
+      const face = result.faceLandmarks?.[0];
+      let away = !face;
+      if (face && result.facialTransformationMatrixes?.[0]) {
+        const m = result.facialTransformationMatrixes[0].data;
+        // Angle of the face's forward axis in the horizontal plane, relative to the camera --
+        // convention-tolerant proxy for yaw: grows as the head turns left/right regardless of
+        // the matrix's exact reference orientation.
+        const yawDeg = (Math.atan2(m[2], m[10]) * 180) / Math.PI;
+        away = Math.abs(yawDeg) > YAW_THRESHOLD_DEG;
+      }
+      const now = Date.now();
+      if (now < graceUntil.current) return;
+      if (away) {
+        if (!awayStartedAt.current) awayStartedAt.current = now;
+        else if (now - awayStartedAt.current > SUSTAINED_MS) {
+          awayStartedAt.current = null;
+          violationCount.current += 1;
+          graceUntil.current = now + GRACE_MS;
+          if (violationCount.current >= MAX_VIOLATIONS) {
+            setViolationWarning('');
+            endForViolation();
+          } else {
+            setViolationWarning(
+              `Please face the camera and keep it in view. Warning ${violationCount.current} of ${MAX_VIOLATIONS}.`,
+            );
+          }
+        }
+      } else {
+        awayStartedAt.current = null;
+        if (now >= graceUntil.current) setViolationWarning('');
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearInterval(tick);
+      faceLandmarker.current?.close();
+      faceLandmarker.current = null;
+    };
+  }, [idChecked, cameraError, !!active]);
+  async function endForViolation() {
+    if (!sRef.current || endingRef.current) return;
+    endingRef.current = true;
+    recorder.current?.cancel();
+    recorder.current = null;
+    try {
+      const next = await api(`/sessions/${sRef.current.id}/end-early`, 'POST', {
+        version: sRef.current.version,
+        reason: 'anti_cheat_violation',
+      });
+      setS(next);
+      setPhase(next.state);
+      onUpdate(next);
+    } catch (e) {
+      onError(e.message);
+    } finally {
+      endingRef.current = false;
+    }
+  }
   async function start() {
     setBusy(true);
     onError('');
@@ -229,6 +343,7 @@ export default function Interview({
       setPhase(next.state);
       setIdChecked(false);
       setIdStatus('Getting the camera ready…');
+      setViolationWarning('');
       onUpdate(next);
     } catch (e) {
       onError(e.message);
@@ -574,6 +689,11 @@ export default function Interview({
               </span>
             )}
           </div>
+          {violationWarning && (
+            <div className="alert error" role="alert">
+              {violationWarning}
+            </div>
+          )}
           {micError && (
             <div className="alert error" role="alert">
               {micError}
