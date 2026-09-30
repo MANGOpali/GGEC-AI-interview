@@ -179,7 +179,8 @@ export default function Interview({
   // frames captured or stored. Auto-advance only runs while the camera is actually working;
   // on any camera error this pauses instead of silently sailing through as if a check happened.
   useEffect(() => {
-    if (idChecked || cameraError) return;
+    const live = s && s.state !== 'REPORT' && s.state !== 'EXPIRED';
+    if (!live || idChecked || cameraError) return;
     voice.speak('Please show your passport to the camera.');
     setIdStatus('Hold your document steady in the frame…');
     idBaseline.current = null;
@@ -228,7 +229,7 @@ export default function Interview({
       clearInterval(tick);
       clearTimeout(reassure);
     };
-  }, [idChecked, cameraError]);
+  }, [idChecked, cameraError, s?.state]);
   // Anti-cheat: head-pose + face-presence heuristic (not literal eye-gaze tracking, and not
   // identity verification) using a real face-landmark model. Detects the student's face turning
   // away from -- or disappearing from -- the frame for a sustained period, warns first, and only
