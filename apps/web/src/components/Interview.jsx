@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, BookOpen, Clock, Mic, ShieldCheck, Square, Volume2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BookOpen,
+  Clock,
+  Mic,
+  ShieldCheck,
+  Square,
+  Volume2,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { speech, voice } from '../services/speech';
 import { transition } from '../services/machine';
@@ -189,9 +198,11 @@ export default function Interview({
     const live = s && s.state !== 'REPORT' && s.state !== 'EXPIRED';
     if (!live || idChecked || cameraError) return;
     voice.speak('Please show your passport to the camera.');
-    setIdStatus('Hold your document steady in the frame…');
+    setIdStatus('Getting the camera ready…');
     idBaseline.current = null;
     idHits.current = 0;
+    const startedAt = Date.now();
+    const WARMUP_MS = 1200; // let auto-exposure/focus settle before locking in a baseline
     const canvas = (idCanvas.current ??= document.createElement('canvas'));
     canvas.width = 32;
     canvas.height = 22;
@@ -210,13 +221,15 @@ export default function Interview({
       return sum / (data.length / 4);
     };
     const tick = setInterval(() => {
+      if (Date.now() - startedAt < WARMUP_MS) return;
       const value = sample();
       if (value == null) return;
       if (idBaseline.current == null) {
         idBaseline.current = value;
+        setIdStatus('Hold your document steady in the frame…');
         return;
       }
-      if (Math.abs(value - idBaseline.current) > 16) {
+      if (Math.abs(value - idBaseline.current) > 10) {
         idHits.current += 1;
         if (idHits.current >= 2) {
           clearInterval(tick);
@@ -309,6 +322,7 @@ export default function Interview({
             setViolationWarning('');
             endForViolation();
           } else {
+            voice.speak('Please face the camera.');
             setViolationWarning(
               `Please face the camera and keep it in view. Warning ${violationCount.current} of ${MAX_VIOLATIONS}.`,
             );
@@ -702,7 +716,8 @@ export default function Interview({
             )}
           </div>
           {violationWarning && (
-            <div className="alert error" role="alert">
+            <div className="violation-banner" role="alert">
+              <AlertTriangle size={22} aria-hidden="true" />
               {violationWarning}
             </div>
           )}
