@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, BookOpen, Clock, Mic, ShieldCheck, Square, Volume2 } from 'lucide-react';
 import { api } from '../services/api';
 import { speech, voice } from '../services/speech';
@@ -41,7 +41,10 @@ export default function Interview({
   const videoStream = useRef(null);
   const [cameraError, setCameraError] = useState('');
   const [idChecked, setIdChecked] = useState(!!initial?.answers?.length);
-  const [idCountdown, setIdCountdown] = useState(5);
+  const [idStatus, setIdStatus] = useState('Getting the camera ready…');
+  const idCanvas = useRef(null);
+  const idBaseline = useRef(null);
+  const idHits = useRef(0);
   const [spokenSeconds, setSpokenSeconds] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null),
     [timeUp, setTimeUp] = useState(false);
@@ -106,10 +109,10 @@ export default function Interview({
   // The id-check screen and the main interview screen each mount their own <video> element
   // (only one at a time), so the stream must be re-attached whenever that node changes --
   // this callback ref does that on every mount instead of only once at acquisition time.
-  const attachVideo = (el) => {
+  const attachVideo = useCallback((el) => {
     videoRef.current = el;
     if (el && videoStream.current) el.srcObject = videoStream.current;
-  };
+  }, []);
   const describeCameraError = (err) =>
     err?.name === 'NotAllowedError'
       ? 'Camera permission was denied. Allow camera access in your browser, then reload the page.'
@@ -161,24 +164,61 @@ export default function Interview({
       cancelled = true;
     };
   }, [s?.state]);
-  // Demo identity-check ritual only: no detection, nothing captured or stored. Mirrors the
-  // real interview's opening ask without doing any actual document verification. Auto-advance
-  // only runs while the camera is actually working -- if it errors, this pauses instead of
-  // silently sailing through to the interview as if a check happened.
+  // Demo identity-check ritual only: this detects that SOMETHING now fills the guide frame
+  // that didn't before (a luminance change in the cropped center region, sampled onto a tiny
+  // offscreen canvas and discarded each tick) -- not real passport/document recognition, no
+  // frames captured or stored. Auto-advance only runs while the camera is actually working;
+  // on any camera error this pauses instead of silently sailing through as if a check happened.
   useEffect(() => {
     if (idChecked || cameraError) return;
     voice.speak('Please show your passport to the camera.');
-    const id = setInterval(() => {
-      setIdCountdown((n) => {
-        if (n <= 1) {
-          clearInterval(id);
-          setIdChecked(true);
-          return 0;
+    setIdStatus('Hold your document steady in the frame…');
+    idBaseline.current = null;
+    idHits.current = 0;
+    const canvas = (idCanvas.current ??= document.createElement('canvas'));
+    canvas.width = 32;
+    canvas.height = 22;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const sample = () => {
+      const video = videoRef.current;
+      const vw = video?.videoWidth,
+        vh = video?.videoHeight;
+      if (!video || video.readyState < 2 || !vw || !vh) return null;
+      const cw = vw * 0.62,
+        ch = cw / 1.42;
+      ctx.drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, canvas.width, canvas.height);
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      return sum / (data.length / 4);
+    };
+    const tick = setInterval(() => {
+      const value = sample();
+      if (value == null) return;
+      if (idBaseline.current == null) {
+        idBaseline.current = value;
+        return;
+      }
+      if (Math.abs(value - idBaseline.current) > 16) {
+        idHits.current += 1;
+        if (idHits.current >= 2) {
+          clearInterval(tick);
+          clearTimeout(reassure);
+          setIdStatus('Got it! Continuing…');
+          setTimeout(() => setIdChecked(true), 700);
         }
-        return n - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
+      } else {
+        idHits.current = 0;
+      }
+    }, 400);
+    const reassure = setTimeout(
+      () => setIdStatus("Still scanning — you can continue manually whenever you're ready."),
+      30000,
+    );
+    return () => {
+      clearInterval(tick);
+      clearTimeout(reassure);
+    };
   }, [idChecked, cameraError]);
   async function start() {
     setBusy(true);
@@ -188,7 +228,7 @@ export default function Interview({
       setS(next);
       setPhase(next.state);
       setIdChecked(false);
-      setIdCountdown(5);
+      setIdStatus('Getting the camera ready…');
       onUpdate(next);
     } catch (e) {
       onError(e.message);
@@ -435,8 +475,14 @@ export default function Interview({
           <p className="muted">
             {cameraError
               ? "We couldn't access a camera on this device, so this practice step will be skipped. The rest of the interview still works normally — you'll answer by voice recording."
-              : "Hold your passport's photo page (or any ID) steadily inside the frame for a few seconds. Nothing is captured, analyzed or stored — this simply mirrors what the real interview will ask you to do."}
+              : "Hold your passport's photo page (or any ID) steadily inside the frame. Nothing is captured, analyzed or stored — this simply mirrors what the real interview will ask you to do."}
           </p>
+          {!cameraError && (
+            <p className="id-check-status">
+              <span className="id-check-status-dot" aria-hidden="true" />
+              {idStatus}
+            </p>
+          )}
           <div className="actions" style={{ justifyContent: 'center' }}>
             {cameraError && (
               <Button secondary onClick={retryCamera}>
@@ -444,11 +490,7 @@ export default function Interview({
               </Button>
             )}
             <Button onClick={() => setIdChecked(true)}>
-              {cameraError
-                ? 'Continue to interview'
-                : idCountdown > 0
-                  ? `Continue now (auto in ${idCountdown}s)`
-                  : 'Continue to interview'}
+              Continue to interview
               <ArrowRight size={16} />
             </Button>
           </div>
