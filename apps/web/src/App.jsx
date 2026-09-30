@@ -1,5 +1,4 @@
-import Calibration from './components/Calibration';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   BookOpen,
   FileText,
@@ -15,14 +14,18 @@ import {
 import { api, auth, health } from './services/api';
 import { label } from './components/common';
 import Login from './components/Login';
-import Profile from './components/Profile';
-import Interview from './components/Interview';
-import Questions from './components/Questions';
-import Students from './components/Students';
-import Leaderboard from './components/Leaderboard';
-import Administration from './components/Administration';
-import ResourceList from './components/ResourceList';
-import ResourceAdmin from './components/ResourceAdmin';
+// Lazy-loaded: each becomes its own chunk, fetched only when a user actually navigates to it,
+// instead of every role downloading every other role's pages up front (students never need
+// Administration/Questions/Students/Calibration; staff rarely need the student-only pages).
+const Calibration = lazy(() => import('./components/Calibration'));
+const Profile = lazy(() => import('./components/Profile'));
+const Interview = lazy(() => import('./components/Interview'));
+const Questions = lazy(() => import('./components/Questions'));
+const Students = lazy(() => import('./components/Students'));
+const Leaderboard = lazy(() => import('./components/Leaderboard'));
+const Administration = lazy(() => import('./components/Administration'));
+const ResourceList = lazy(() => import('./components/ResourceList'));
+const ResourceAdmin = lazy(() => import('./components/ResourceAdmin'));
 
 const ROOT = { student: 'student', counsellor: 'counsellor', admin: 'admin' };
 const ALLOWED = {
@@ -268,6 +271,7 @@ export default function App() {
               {notice}
             </div>
           )}
+          <Suspense fallback={<div className="spinner" aria-hidden="true" />}>
           {page === 'profile' && (
             <Profile
               user={user}
@@ -345,6 +349,7 @@ export default function App() {
             <Leaderboard run={run} onProfile={() => navigate('profile')} student={!staff} />
           )}
           {page === 'admin' && <Administration run={run} />}
+          </Suspense>
           <footer>
             GLOBAL GATE EDUCATIONAL CONSULTANCY <span>Preparation for your next chapter.</span>
           </footer>
