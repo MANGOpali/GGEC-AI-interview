@@ -46,6 +46,11 @@ export default function Interview({
   const idCanvas = useRef(null);
   const idBaseline = useRef(null);
   const idHits = useRef(0);
+  // question_started_at is set server-side the moment the session is CREATED, before the
+  // passport-check ritual even begins -- so the first question's countdown would otherwise
+  // already show time elapsed by the time the student reaches it. Track when the check
+  // actually finished and never start the displayed countdown earlier than that.
+  const idCheckDoneAt = useRef(null);
   const [violationWarning, setViolationWarning] = useState('');
   const faceLandmarker = useRef(null);
   const violationCount = useRef(0);
@@ -74,7 +79,9 @@ export default function Interview({
       return;
     }
     const total = active.time_limit_seconds ?? (s.pending_follow_up ? 60 : 120);
-    const started = Date.parse(s.question_started_at);
+    // Never start the displayed countdown before the passport-check screen actually finished --
+    // question_started_at is set server-side at session creation, before that screen even shows.
+    const started = Math.max(Date.parse(s.question_started_at), idCheckDoneAt.current ?? 0);
     let done = false;
     const tick = () => {
       const left = Number.isFinite(started)
@@ -91,7 +98,7 @@ export default function Interview({
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [active?.text, s?.pending_follow_up, s?.question_started_at, s?.version, flexible]);
+  }, [active?.text, s?.pending_follow_up, s?.question_started_at, s?.version, flexible, idChecked]);
   useEffect(() => {
     api('/interview-rules')
       .then(setRules)
@@ -230,6 +237,9 @@ export default function Interview({
       clearTimeout(reassure);
     };
   }, [idChecked, cameraError, s?.state]);
+  useEffect(() => {
+    if (idChecked) idCheckDoneAt.current = Date.now();
+  }, [idChecked]);
   // Anti-cheat: head-pose + face-presence heuristic (not literal eye-gaze tracking, and not
   // identity verification) using a real face-landmark model. Detects the student's face turning
   // away from -- or disappearing from -- the frame for a sustained period, warns first, and only
@@ -345,6 +355,7 @@ export default function Interview({
       setIdChecked(false);
       setIdStatus('Getting the camera ready…');
       setViolationWarning('');
+      idCheckDoneAt.current = null;
       onUpdate(next);
     } catch (e) {
       onError(e.message);
