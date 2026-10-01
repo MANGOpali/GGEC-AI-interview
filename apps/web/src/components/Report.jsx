@@ -13,16 +13,83 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
     const words = text.trim().split(/\s+/);
     return words.length > 35 ? `${words.slice(0, 35).join(' ')}…` : text;
   };
-  function download() {
-    const sanitized = structuredClone(s);
-    delete sanitized.profile_snapshot;
-    const blob = new Blob([JSON.stringify(sanitized, null, 2)], { type: 'application/json' }),
-      url = URL.createObjectURL(blob),
-      a = document.createElement('a');
-    a.href = url;
-    a.download = `ggec-report-${s.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function download() {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 48;
+    const maxWidth = doc.internal.pageSize.getWidth() - margin * 2;
+    const pageBottom = doc.internal.pageSize.getHeight() - margin;
+    const lineHeight = 15;
+    let y = margin;
+    const ensureSpace = (needed = lineHeight) => {
+      if (y + needed > pageBottom) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+    const heading = (text, size = 14) => {
+      ensureSpace(size + 10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(size);
+      doc.text(text, margin, y);
+      y += size + 8;
+    };
+    const paragraph = (text) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      for (const line of doc.splitTextToSize(text, maxWidth)) {
+        ensureSpace();
+        doc.text(line, margin, y);
+        y += lineHeight;
+      }
+    };
+    const bullet = (text) => paragraph(`•  ${text}`);
+
+    heading('GGEC Pre-CAS Interview Report', 18);
+    paragraph(
+      `${s.practice_category ? s.practice_category + ' practice · ' : ''}${date(s.started_at)} · ${s.answers.length} saved answers`,
+    );
+    y += 6;
+    if (s.ended_reason === 'anti_cheat_violation') {
+      paragraph(
+        "This attempt ended early — the camera repeatedly couldn't confirm the student was facing the screen. Answers already submitted are still scored normally below.",
+      );
+      y += 6;
+    }
+    if (r) {
+      heading('Summary');
+      paragraph(
+        `Overall practice score: ${r.overall_score === null ? 'Not scored' : `${r.overall_score}/100`} (${r.evaluated_answers}/${r.total_answers} answers evaluated)`,
+      );
+      paragraph(`Practice readiness: ${r.readiness_level}`);
+      paragraph(`Strong areas: ${r.strong_areas.join(', ') || 'Not assessed yet'}`);
+      y += 6;
+      heading('Category scores');
+      Object.entries(r.category_scores).forEach(([k, v]) => paragraph(`${k}: ${v}/100`));
+      y += 6;
+      const topPriorities = [...new Set(priorities.length ? priorities : r.recommendations || [])].slice(
+        0,
+        3,
+      );
+      if (topPriorities.length) {
+        heading('Your next 3 improvements');
+        topPriorities.forEach((t) => bullet(shortFeedback(t)));
+        y += 6;
+      }
+      if (r.weak_areas.length) {
+        heading('Focus areas');
+        r.weak_areas.forEach((t) => bullet(t));
+        y += 6;
+      }
+      const poorQuestions = r.poor_answers.map((x) => x.question);
+      if (poorQuestions.length) {
+        heading('Questions to revisit');
+        poorQuestions.forEach((t) => bullet(t));
+      }
+    } else {
+      paragraph('No report is available yet for this attempt.');
+    }
+    doc.save(`ggec-report-${s.id}.pdf`);
   }
   return (
     <>
@@ -40,7 +107,7 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
       <div className="actions">
         <Button secondary onClick={download}>
           <Download size={17} />
-          Download report
+          Download PDF
         </Button>
         {staff && (
           <Button secondary onClick={onHold}>
