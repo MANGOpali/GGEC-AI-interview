@@ -719,6 +719,11 @@ select:focus {
   grid-template-columns: 1fr 1fr;
   gap: 18px;
 }
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 .profile-form section {
   padding-bottom: 25px;
   margin-bottom: 25px;

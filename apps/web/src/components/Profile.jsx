@@ -27,6 +27,7 @@ export default function Profile({
         title="Your account, in your hands."
         description="Add your university and course first, then keep your contact details and saved attempts up to date."
       />
+      <div className="profile-page">
       <StudyDetails value={profile} onSave={onSaveStudy} onDelete={onDeleteStudy} />
       <form
         className="card"
@@ -136,6 +137,7 @@ export default function Profile({
           </div>
         )}
       </section>
+      </div>
     </>
   );
 }
