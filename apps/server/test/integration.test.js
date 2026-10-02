@@ -884,3 +884,72 @@ test('minimal student profile: only university, course and intake are required',
   assert.equal(answered.answers.length, 1);
   assert.equal((await repo.profile(demoUsers[0].id)).accommodation, '');
 });
+test('interview credits gate full and category practice starts, and the synchronous path charges per answer', async (t) => {
+  const { as, repo } = await setup(t, {
+    name: 'fixture',
+    evaluateAnswer: async () => fullEval(),
+    generateFollowUp: () => null,
+  });
+  await as().put('/profile', profile);
+  const student = await repo.get('users', demoUsers[0].id);
+  await repo.put('users', {
+    ...student,
+    interview_question_credits_remaining: 5,
+    free_questions_remaining: 0,
+  });
+  // 11 active main questions in this fixture bank -- 5 credits is not enough for a full interview.
+  await as().post('/sessions', { consent: true }).expect(402);
+  await as().post('/sessions', { consent: true, category: 'Finance' }).expect(402);
+  await repo.put('users', {
+    ...(await repo.get('users', demoUsers[0].id)),
+    interview_question_credits_remaining: 20,
+  });
+  let s = (await as().post('/sessions', { consent: true }).expect(201)).body;
+  s = (
+    await as()
+      .post(`/sessions/${s.id}/answers`, {
+        version: s.version,
+        request_id: randomUUID(),
+        transcript: 'A specific, honest answer.',
+      })
+      .expect(200)
+  ).body;
+  assert.equal(s.answers[0].evaluation.relevance, 8);
+  assert.equal(
+    (await repo.get('users', demoUsers[0].id)).interview_question_credits_remaining,
+    19,
+  );
+});
+test('admin packages, purchases and free-question grants top up the right balance', async (t) => {
+  const { as, repo } = await setup(t);
+  await as('counsellor')
+    .post('/packages', { name: 'x', price_rs: 1, interview_credits: 1 })
+    .expect(403);
+  const pkg = (
+    await as('admin')
+      .post('/packages', { name: '5 Mock Interviews', price_rs: 500, interview_credits: 5 })
+      .expect(201)
+  ).body;
+  assert.equal((await as('admin').get('/packages')).body.some((p) => p.id === pkg.id), true);
+  await repo.put('users', {
+    ...(await repo.get('users', demoUsers[0].id)),
+    interview_question_credits_remaining: 0,
+    free_questions_remaining: 0,
+  });
+  await as('student').post(`/students/${demoUsers[0].id}/purchases`, { package_id: pkg.id }).expect(403);
+  const purchased = (
+    await as('admin')
+      .post(`/students/${demoUsers[0].id}/purchases`, { package_id: pkg.id })
+      .expect(201)
+  ).body;
+  assert.equal(purchased.interview_question_credits_remaining, 95);
+  const granted = (
+    await as('admin')
+      .post(`/students/${demoUsers[0].id}/grant-free-questions`, { amount: 7 })
+      .expect(201)
+  ).body;
+  assert.equal(granted.free_questions_remaining, 7);
+  const finalUser = await repo.get('users', demoUsers[0].id);
+  assert.equal(finalUser.interview_question_credits_remaining, 95);
+  assert.equal(finalUser.free_questions_remaining, 7);
+});

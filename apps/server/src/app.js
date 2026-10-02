@@ -41,6 +41,7 @@ import {
   fullyEvaluated,
   mergeReport,
   buildReport,
+  INTERVIEW_QUESTION_COUNT,
 } from './domain.js';
 const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
@@ -411,6 +412,17 @@ export function createApp({
     }
     created.practice_category = category || null;
     if (isStaffTest) created.is_staff_test = true;
+    if (!isStaffTest) {
+      const needed = created.questions.length;
+      const field = category ? 'free_questions_remaining' : 'interview_question_credits_remaining';
+      if ((req.user[field] ?? 0) < needed)
+        fail(
+          402,
+          category
+            ? `Not enough free practice questions remaining (${needed} needed for this category). Contact your administrator for more.`
+            : `Not enough interview credits for a full interview (${needed} needed). Contact your administrator to renew your package.`,
+        );
+    }
     res.status(201).json(student(await repo.saveSession(created, -1)));
   });
   app.get('/api/sessions/:id', async (req, res) => {
@@ -472,7 +484,21 @@ export function createApp({
             prior_qa: s.answers.map((a) => ({ question: a.question_text, answer: a.transcript })),
             is_followup: !!s.pending_follow_up,
           });
-        if (evaluation) evaluation.follow_up_question = llm.generateFollowUp(evaluation);
+        if (evaluation) {
+          evaluation.follow_up_question = llm.generateFollowUp(evaluation);
+          // Mirrors the background evaluator's deduction (src/evaluator.js) for the synchronous
+          // path -- this only runs when deferScoring is off, but must charge exactly the same way.
+          if (!s.is_staff_test) {
+            const field = s.practice_category
+              ? 'free_questions_remaining'
+              : 'interview_question_credits_remaining';
+            try {
+              await repo.adjustCredit?.(s.student_id, field, -1);
+            } catch (creditError) {
+              console.error('Credit deduction failed:', creditError);
+            }
+          }
+        }
       } catch (error) {
         reportFailure('AI evaluation failed:', error);
         warning = `Your answer was saved. ${evaluationFailure(error)}`;
@@ -655,6 +681,75 @@ export function createApp({
     res
       .status(201)
       .json({ id: data.user.id, email: input.email, name: input.name, role: input.role, password });
+  });
+  app.get('/api/packages', async (req, res) => {
+    if (!staff(req.user)) fail(403, 'Staff access required.');
+    res.json((await repo.list('credit_packages')).filter((p) => p.active !== false));
+  });
+  app.post('/api/packages', async (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'Admin access required.');
+    const input = z
+      .object({
+        name: z.string().trim().min(1).max(100),
+        price_rs: z.number().min(0),
+        interview_credits: z.number().int().min(1).max(1000),
+      })
+      .parse(req.body);
+    res
+      .status(201)
+      .json(await repo.put('credit_packages', { id: randomUUID(), active: true, ...input }));
+  });
+  app.put('/api/packages/:id', async (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'Admin access required.');
+    const existing = await repo.get('credit_packages', req.params.id);
+    if (!existing) fail(404, 'Package not found.');
+    const input = z.object({ active: z.boolean() }).parse(req.body);
+    res.json(await repo.put('credit_packages', { ...existing, ...input }));
+  });
+  app.post('/api/students/:id/purchases', async (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'Admin access required.');
+    const target = await repo.get('users', req.params.id);
+    if (target?.role !== 'student') fail(404, 'Student not found.');
+    const input = z
+      .object({ package_id: z.uuid(), note: z.string().trim().max(300).optional() })
+      .parse(req.body);
+    const pkg = await repo.get('credit_packages', input.package_id);
+    if (!pkg) fail(404, 'Package not found.');
+    const questionCredits = pkg.interview_credits * INTERVIEW_QUESTION_COUNT;
+    const remaining = await repo.adjustCredit(
+      target.id,
+      'interview_question_credits_remaining',
+      questionCredits,
+    );
+    await repo.put('credit_purchases', {
+      id: randomUUID(),
+      student_id: target.id,
+      package_id: pkg.id,
+      price_paid_rs: pkg.price_rs,
+      question_credits_granted: questionCredits,
+      recorded_by: req.user.id,
+      note: input.note || '',
+      created_at: new Date().toISOString(),
+    });
+    await audit(req.user, target.id, 'package-purchase-recorded');
+    res.status(201).json({ interview_question_credits_remaining: remaining });
+  });
+  app.post('/api/students/:id/grant-free-questions', async (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'Admin access required.');
+    const target = await repo.get('users', req.params.id);
+    if (target?.role !== 'student') fail(404, 'Student not found.');
+    const input = z.object({ amount: z.number().int().min(1).max(1000) }).parse(req.body);
+    const remaining = await repo.adjustCredit(target.id, 'free_questions_remaining', input.amount);
+    await repo.put('free_question_grants', {
+      id: randomUUID(),
+      student_id: target.id,
+      amount: input.amount,
+      recorded_by: req.user.id,
+      note: '',
+      created_at: new Date().toISOString(),
+    });
+    await audit(req.user, target.id, 'free-questions-granted');
+    res.status(201).json({ free_questions_remaining: remaining });
   });
   app.get('/api/assignments', async (req, res) => {
     if (req.user.role !== 'admin') fail(403, 'Admin access required.');

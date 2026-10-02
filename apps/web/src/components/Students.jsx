@@ -43,6 +43,12 @@ export default function Students({ sessions, run, openSession }) {
             {s.profile?.university || 'Profile not completed'}
             {s.profile?.course ? ` · ${s.profile.course}` : ''}
           </p>
+          <p className="muted">
+            {Math.floor((s.interview_question_credits_remaining ?? 0) / 19)} full interview
+            {Math.floor((s.interview_question_credits_remaining ?? 0) / 19) === 1 ? '' : 's'} ·{' '}
+            {s.free_questions_remaining ?? 0} free question
+            {(s.free_questions_remaining ?? 0) === 1 ? '' : 's'} remaining
+          </p>
           {s.profile && (
             <details>
               <summary>View student profile</summary>

@@ -759,6 +759,10 @@ select:focus {
   color: #7487b4;
   margin-top: 13px;
 }
+.credit-balance {
+  font-weight: 600;
+  color: #5a6d92;
+}
 .actions {
   display: flex;
   gap: 14px;

@@ -22,6 +22,7 @@ const ENFORCE_TIME_LIMITS = false;
 export default function Interview({
   initial,
   profile,
+  user,
   staff,
   initialCategory,
   onError,
@@ -522,7 +523,12 @@ export default function Interview({
       setBusy(false);
     }
   }
-  if (!s)
+  if (!s) {
+    // Staff never spend credits (see evaluator.js/app.js) -- this gate is purely informational
+    // for students. The server re-checks the exact amount needed regardless of this estimate.
+    const fullInterviewsLeft = Math.floor((user?.interview_question_credits_remaining ?? 0) / 19);
+    const freeQuestionsLeft = user?.free_questions_remaining ?? 0;
+    const outOfCredit = !staff && (category ? freeQuestionsLeft < 1 : fullInterviewsLeft < 1);
     return (
       <>
         <Title
@@ -535,6 +541,13 @@ export default function Interview({
             <Mic size={30} />
           </span>
           <h2>Ready when you are.</h2>
+          {!staff && (
+            <p className="muted credit-balance">
+              {fullInterviewsLeft} full interview{fullInterviewsLeft === 1 ? '' : 's'} ·{' '}
+              {freeQuestionsLeft} free practice question{freeQuestionsLeft === 1 ? '' : 's'}{' '}
+              remaining
+            </p>
+          )}
           <label className="field practice-focus">
             <span className="field-label-row">
               <Filter size={14} /> Practice focus
@@ -589,13 +602,20 @@ export default function Interview({
             transcription provider or your browser only for transcription. Transcripts follow your consultancy's retention
             policy (default 90 days). This is practice feedback, not an admission or visa decision.
           </p>
+          {outOfCredit && (
+            <div className="alert error" role="alert">
+              {category
+                ? "You've used all your free practice questions for now. Contact your administrator for more."
+                : "You've used all your interview credits. Contact your administrator to renew your package."}
+            </div>
+          )}
           {!profile && !staff ? (
             <Button onClick={onProfile}>
               Complete your profile first
               <ArrowRight size={16} />
             </Button>
           ) : (
-            <Button disabled={!consent || busy} onClick={start}>
+            <Button disabled={!consent || busy || outOfCredit} onClick={start}>
               {busy ? 'Starting…' : 'Begin interview'}
               <ArrowRight size={16} />
             </Button>
@@ -603,6 +623,7 @@ export default function Interview({
         </section>
       </>
     );
+  }
   if (s.state === 'REPORT' || s.state === 'EXPIRED' || staff)
     return (
       <Report

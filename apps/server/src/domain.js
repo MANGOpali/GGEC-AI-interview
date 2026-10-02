@@ -4,6 +4,9 @@ import { standardVersion, standardWeights } from './standards-bank.js';
 import { scoreAnswer, answerContributions, scoringVersion, rubricWeights } from './scoring.js';
 export const mainQuestionSeconds = 120;
 export const followUpSeconds = 60;
+// The fixed size of one standards-mode full interview -- the unit a credit package is priced
+// and converted against (1 interview credit purchased = this many question-credits granted).
+export const INTERVIEW_QUESTION_COUNT = 19;
 export const metrics = [
   'relevance',
   'accuracy',

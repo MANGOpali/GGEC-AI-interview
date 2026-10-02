@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Copy, ShieldCheck, UserCog, UserPlus, Users } from 'lucide-react';
+import {
+  ClipboardList,
+  Copy,
+  CreditCard,
+  Package,
+  ShieldCheck,
+  UserCog,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { Badge, Button, Field, Stat, Title } from './common';
 
 const roleTone = { admin: 'role-admin', counsellor: 'role-counsellor', student: 'role-student' };
+const QUESTIONS_PER_INTERVIEW = 19;
 
 export default function Administration({ run }) {
   const [users, setUsers] = useState([]),
     [assignments, setAssignments] = useState([]),
     [logs, setLogs] = useState([]),
+    [packages, setPackages] = useState([]),
     [c, setC] = useState(''),
     [s, setS] = useState('');
   const [newName, setNewName] = useState(''),
@@ -17,17 +28,35 @@ export default function Administration({ run }) {
     [newRole, setNewRole] = useState('student'),
     [creating, setCreating] = useState(false),
     [created, setCreated] = useState(null);
+  const [pkgName, setPkgName] = useState(''),
+    [pkgPrice, setPkgPrice] = useState(''),
+    [pkgCredits, setPkgCredits] = useState(''),
+    [pkgBusy, setPkgBusy] = useState(false);
+  const [creditStudent, setCreditStudent] = useState(''),
+    [purchasePackageId, setPurchasePackageId] = useState(''),
+    [purchaseNote, setPurchaseNote] = useState(''),
+    [purchaseBusy, setPurchaseBusy] = useState(false),
+    [grantAmount, setGrantAmount] = useState(''),
+    [grantBusy, setGrantBusy] = useState(false);
   async function load() {
-    const [u, a, l] = await Promise.all([api('/users'), api('/assignments'), api('/audit')]);
+    const [u, a, l, p] = await Promise.all([
+      api('/users'),
+      api('/assignments'),
+      api('/audit'),
+      api('/packages'),
+    ]);
     setUsers(u);
     setAssignments(a);
     setLogs(l);
+    setPackages(p);
   }
   useEffect(() => {
     run(load);
   }, []);
   const name = (id) => users.find((u) => u.id === id)?.name || id;
   const staff = useMemo(() => users.filter((u) => u.role !== 'student'), [users]);
+  const students = useMemo(() => users.filter((u) => u.role === 'student'), [users]);
+  const creditTarget = students.find((u) => u.id === creditStudent);
   const counsellorCount = staff.filter((u) => u.role === 'counsellor').length,
     adminCount = staff.filter((u) => u.role === 'admin').length;
   return (
@@ -137,6 +166,183 @@ export default function Administration({ run }) {
           </div>
         ) : (
           <p className="muted">No staff accounts found.</p>
+        )}
+      </section>
+      <section className="card">
+        <div className="section-title">
+          <h2>Credit packages</h2>
+          <span className="pill">{packages.length} active</span>
+        </div>
+        <p className="muted">
+          A full interview is {QUESTIONS_PER_INTERVIEW} questions. A package's credits are
+          converted to question-credits at purchase time (e.g. 5 interview credits grants{' '}
+          {5 * QUESTIONS_PER_INTERVIEW} question-credits).
+        </p>
+        {packages.length ? (
+          <div className="staff-directory">
+            {packages.map((p) => (
+              <div className="staff-row" key={p.id}>
+                <span className="avatar-sm">
+                  <Package size={16} />
+                </span>
+                <div>
+                  <b>{p.name}</b>
+                  <small>
+                    Rs {p.price_rs} · {p.interview_credits} full interview
+                    {p.interview_credits === 1 ? '' : 's'}
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No packages defined yet.</p>
+        )}
+        <form
+          className="form-grid"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setPkgBusy(true);
+            const result = await run(async () => {
+              const p = await api('/packages', 'POST', {
+                name: pkgName,
+                price_rs: Number(pkgPrice),
+                interview_credits: Number(pkgCredits),
+              });
+              await load();
+              return p;
+            });
+            setPkgBusy(false);
+            if (result) {
+              setPkgName('');
+              setPkgPrice('');
+              setPkgCredits('');
+            }
+          }}
+        >
+          <Field name="name" label="Package name" value={pkgName} onChange={setPkgName} required />
+          <Field
+            name="price_rs"
+            type="number"
+            label="Price (Rs)"
+            value={pkgPrice}
+            onChange={setPkgPrice}
+            required
+          />
+          <Field
+            name="interview_credits"
+            type="number"
+            label="Full interviews included"
+            value={pkgCredits}
+            onChange={setPkgCredits}
+            required
+          />
+          <Button disabled={pkgBusy}>
+            <Package size={16} />
+            {pkgBusy ? 'Creating…' : 'Create package'}
+          </Button>
+        </form>
+      </section>
+      <section className="card">
+        <h2>Student credits</h2>
+        <p className="muted">
+          Record a package a student paid for offline, or grant extra free practice questions.
+          Once a balance runs out, the student is told to contact you here.
+        </p>
+        <label className="field">
+          Student
+          <select value={creditStudent} onChange={(e) => setCreditStudent(e.target.value)}>
+            <option value="">Choose student</option>
+            {students.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name || u.email}
+              </option>
+            ))}
+          </select>
+        </label>
+        {creditTarget && (
+          <>
+            <p className="credit-balance">
+              {Math.floor(
+                (creditTarget.interview_question_credits_remaining ?? 0) / QUESTIONS_PER_INTERVIEW,
+              )}{' '}
+              full interviews · {creditTarget.free_questions_remaining ?? 0} free questions
+              remaining
+            </p>
+            <form
+              className="form-grid"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setPurchaseBusy(true);
+                const result = await run(async () => {
+                  await api(`/students/${creditTarget.id}/purchases`, 'POST', {
+                    package_id: purchasePackageId,
+                    ...(purchaseNote ? { note: purchaseNote } : {}),
+                  });
+                  await load();
+                });
+                setPurchaseBusy(false);
+                if (result !== null) {
+                  setPurchasePackageId('');
+                  setPurchaseNote('');
+                }
+              }}
+            >
+              <label className="field">
+                Package purchased
+                <select
+                  required
+                  value={purchasePackageId}
+                  onChange={(e) => setPurchasePackageId(e.target.value)}
+                >
+                  <option value="">Choose package</option>
+                  {packages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — Rs {p.price_rs}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Field
+                name="note"
+                label="Note (optional)"
+                placeholder="e.g. paid by bank transfer"
+                value={purchaseNote}
+                onChange={setPurchaseNote}
+              />
+              <Button disabled={purchaseBusy}>
+                <CreditCard size={16} />
+                {purchaseBusy ? 'Recording…' : 'Record purchase'}
+              </Button>
+            </form>
+            <form
+              className="actions"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setGrantBusy(true);
+                const result = await run(async () => {
+                  await api(`/students/${creditTarget.id}/grant-free-questions`, 'POST', {
+                    amount: Number(grantAmount),
+                  });
+                  await load();
+                });
+                setGrantBusy(false);
+                if (result !== null) setGrantAmount('');
+              }}
+            >
+              <Field
+                name="amount"
+                type="number"
+                label="Grant free questions"
+                value={grantAmount}
+                onChange={setGrantAmount}
+                required
+              />
+              <Button secondary disabled={grantBusy}>
+                {grantBusy ? 'Granting…' : 'Grant'}
+              </Button>
+            </form>
+          </>
         )}
       </section>
       <section className="card">

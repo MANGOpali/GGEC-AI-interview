@@ -3,11 +3,14 @@ import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { seedQuestions, seedResources } from './domain.js';
+// Demo/local-dev accounts are not real purchases, so they start with generous balances rather
+// than the real signup default -- nothing here reflects actual billing.
+const demoCredits = { free_questions_remaining: 10, interview_question_credits_remaining: 999 };
 export const demoUsers = [
-  { id: '10000000-0000-4000-8000-000000000001', name: 'Demo Student', role: 'student' },
+  { id: '10000000-0000-4000-8000-000000000001', name: 'Demo Student', role: 'student', ...demoCredits },
   { id: '10000000-0000-4000-8000-000000000002', name: 'Demo Counsellor', role: 'counsellor' },
   { id: '10000000-0000-4000-8000-000000000003', name: 'Demo Admin', role: 'admin' },
-  { id: '10000000-0000-4000-8000-000000000004', name: 'Unassigned Student', role: 'student' },
+  { id: '10000000-0000-4000-8000-000000000004', name: 'Unassigned Student', role: 'student', ...demoCredits },
 ];
 export function conflict() {
   return Object.assign(
@@ -147,6 +150,16 @@ export async function localRepository(path, vault) {
         return count;
       });
     },
+    // Floor-at-zero, serialized through the same write queue as every other mutation here --
+    // this single-process demo repo has no concurrent-write race to guard against.
+    async adjustCredit(studentId, field, delta) {
+      return write((d) => {
+        const u = (d.users || []).find((x) => x.id === studentId);
+        if (!u) return null;
+        u[field] = Math.max(0, (u[field] ?? 0) + delta);
+        return u[field];
+      });
+    },
   };
 }
 export function supabaseRepository(url, key, vault) {
@@ -256,6 +269,12 @@ export function supabaseRepository(url, key, vault) {
     },
     async cleanup(days) {
       return result(client.rpc('purge_transcripts', { retention_days: days }));
+    },
+    // Atomic, floor-at-zero via a Postgres function (see migration 005) -- a plain read-modify-
+    // write here would lose updates when several of a student's answers are evaluated at once.
+    async adjustCredit(studentId, field, delta) {
+      const fn = field === 'free_questions_remaining' ? 'adjust_free_questions' : 'adjust_interview_credits';
+      return result(client.rpc(fn, { uid: studentId, delta }));
     },
   };
 }

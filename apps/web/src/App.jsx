@@ -74,7 +74,8 @@ export default function App() {
     [selected, setSelected] = useState(null),
     [testCategory, setTestCategory] = useState('');
   async function refresh() {
-    const [p, s] = await Promise.all([api('/profile'), api('/sessions')]);
+    const [u, p, s] = await Promise.all([api('/me'), api('/profile'), api('/sessions')]);
+    setUser(u);
     setProfile(p);
     setSessions(s);
   }
@@ -344,6 +345,7 @@ export default function App() {
               key={selected?.id || 'new'}
               initial={selected}
               profile={profile}
+              user={user}
               staff={staff}
               initialCategory={testCategory}
               onError={setError}

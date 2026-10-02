@@ -136,6 +136,7 @@ export function createEvaluator({
             cooldown = new Date(Date.now() + 60000).toISOString();
             break; // Stop the batch on provider failure; never hammer the remaining answers.
           }
+          let applied = false;
           await update(id, (latest) => {
             const target = latest.answers.find((x) => x.id === a.id);
             if (
@@ -148,7 +149,21 @@ export function createEvaluator({
             target.answer_score = scoreAnswer(evaluation);
             if (latest.state === 'REPORT') latest.report = buildReport(latest);
             latest.evaluation_job.updated_at = new Date().toISOString();
+            applied = true;
           });
+          // Charge for the question only once it's actually scored, and only once per answer
+          // (the `applied` flag above skips this if another concurrent worker already won the
+          // race to evaluate the same answer). Staff testing their own account never pays.
+          if (applied && !s.is_staff_test) {
+            const field = s.practice_category
+              ? 'free_questions_remaining'
+              : 'interview_question_credits_remaining';
+            try {
+              await repo.adjustCredit?.(s.student_id, field, -1);
+            } catch (error) {
+              console.error('Credit deduction failed:', error);
+            }
+          }
         }
       };
       const workers = await Promise.allSettled(
