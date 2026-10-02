@@ -770,6 +770,37 @@ select:focus {
   flex-wrap: wrap;
   margin: 15px 0;
 }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 26, 46, 0.45);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(17, 26, 46, 0.25);
+}
+.modal h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+.modal-body {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #4a5c8a;
+}
+.modal .actions {
+  justify-content: flex-end;
+  margin-top: 22px;
+}
 .alert {
   padding: 12px 18px;
   background: rgba(233, 238, 248, 0.65);
@@ -1711,7 +1742,7 @@ th {
   border-radius: 8px;
   background: #fbfcfe;
 }
-.staff-row .avatar-sm {
+.avatar-sm {
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -1733,6 +1764,129 @@ th {
 }
 .staff-row .badge {
   margin-left: auto;
+}
+.credit-manager {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 16px;
+}
+.credit-filter-tabs {
+  margin: 10px 0 14px;
+}
+.credit-filter-tabs button {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+.credit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.credit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  border: 1px solid transparent;
+  width: 100%;
+}
+.credit-row:hover {
+  background: rgba(90, 109, 146, 0.08);
+}
+.credit-row.active {
+  background: rgba(208, 16, 32, 0.08);
+  border-color: rgba(208, 16, 32, 0.25);
+}
+.credit-row > div:not(.credit-row-balance) {
+  flex: 1;
+  min-width: 0;
+}
+.credit-row b {
+  font-size: 12px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.credit-row small {
+  font-size: 10px;
+  color: #8a97b5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.credit-row-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+.credit-detail {
+  border: 1px solid #e9eef7;
+  border-radius: 14px;
+  padding: 20px;
+  background: #fbfcfe;
+  min-height: 200px;
+}
+.credit-detail h3 {
+  font-size: 15px;
+}
+.credit-detail .empty {
+  padding: 30px 10px;
+  text-align: center;
+  color: #8a97b5;
+  font-size: 12px;
+}
+.credit-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.credit-history-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e9eef7;
+  border-radius: 10px;
+  color: #5a6d92;
+}
+.credit-history-row > div {
+  flex: 1;
+  min-width: 0;
+}
+.credit-history-row b {
+  font-size: 12px;
+  display: block;
+}
+.credit-history-row small {
+  font-size: 10px;
+  color: #8a97b5;
+}
+.credit-history-amount {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2c7a4b;
+  flex-shrink: 0;
+}
+@media (max-width: 900px) {
+  .credit-manager {
+    grid-template-columns: 1fr;
+  }
+  .credit-list {
+    max-height: 320px;
+  }
 }
 .rank-medal {
   display: inline-grid;

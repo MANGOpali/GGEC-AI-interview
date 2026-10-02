@@ -14,7 +14,7 @@ import {
 import { api } from '../services/api';
 import { speech, voice } from '../services/speech';
 import { transition } from '../services/machine';
-import { Button, Title } from './common';
+import { Button, ConfirmDialog, Title } from './common';
 import Report from './Report';
 
 // Testing only: disables the auto-stop-at-timeout behavior below. Flip back to true to restore it.
@@ -35,7 +35,8 @@ export default function Interview({
     [transcript, setTranscript] = useState(''),
     [phase, setPhase] = useState(initial?.state || 'CONSENT'),
     [busy, setBusy] = useState(false),
-    [warning, setWarning] = useState('');
+    [warning, setWarning] = useState(''),
+    [confirmFullStart, setConfirmFullStart] = useState(false);
   const [micStatus, setMicStatus] = useState(''),
     [interim, setInterim] = useState(''),
     [micError, setMicError] = useState('');
@@ -615,10 +616,29 @@ export default function Interview({
               <ArrowRight size={16} />
             </Button>
           ) : (
-            <Button disabled={!consent || busy || outOfCredit} onClick={start}>
+            <Button
+              disabled={!consent || busy || outOfCredit}
+              onClick={() => (category || staff ? start() : setConfirmFullStart(true))}
+            >
               {busy ? 'Starting…' : 'Begin interview'}
               <ArrowRight size={16} />
             </Button>
+          )}
+          {confirmFullStart && (
+            <ConfirmDialog
+              title="Start this full interview?"
+              confirmLabel="Yes, start interview"
+              busy={busy}
+              onCancel={() => setConfirmFullStart(false)}
+              onConfirm={() => {
+                setConfirmFullStart(false);
+                start();
+              }}
+            >
+              Starting this interview will use <b>1 full interview credit</b> from your balance
+              right away. If you exit before finishing, you keep the credit spent — it is not
+              refunded. Do you want to continue?
+            </ConfirmDialog>
           )}
         </section>
       </>

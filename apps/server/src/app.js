@@ -423,7 +423,24 @@ export function createApp({
             : `Not enough interview credits for a full interview (${needed} needed). Contact your administrator to renew your package.`,
         );
     }
-    res.status(201).json(student(await repo.saveSession(created, -1)));
+    const saved = await repo.saveSession(created, -1);
+    // Full interviews are charged entirely up front -- the student confirms this cost on a
+    // consent popup before this request ever fires, so an abandoned attempt still costs the
+    // credit it already warned about. Category/free-question practice is unaffected: it's
+    // still charged per answer as it's evaluated (see app.js's /answers handler and
+    // evaluator.js), since there's no equivalent upfront warning for that free-trial pool.
+    if (!isStaffTest && !category) {
+      try {
+        await repo.adjustCredit?.(
+          req.user.id,
+          'interview_question_credits_remaining',
+          -created.questions.length,
+        );
+      } catch (error) {
+        console.error('Credit deduction failed:', error);
+      }
+    }
+    res.status(201).json(student(saved));
   });
   app.get('/api/sessions/:id', async (req, res) => {
     const s = await session(req);
@@ -486,14 +503,12 @@ export function createApp({
           });
         if (evaluation) {
           evaluation.follow_up_question = llm.generateFollowUp(evaluation);
-          // Mirrors the background evaluator's deduction (src/evaluator.js) for the synchronous
-          // path -- this only runs when deferScoring is off, but must charge exactly the same way.
-          if (!s.is_staff_test) {
-            const field = s.practice_category
-              ? 'free_questions_remaining'
-              : 'interview_question_credits_remaining';
+          // Mirrors the background evaluator's deduction (src/evaluator.js). Full interviews are
+          // charged entirely at session creation (see POST /sessions above), not here -- only
+          // category/free-question practice is still charged per answer.
+          if (!s.is_staff_test && s.practice_category) {
             try {
-              await repo.adjustCredit?.(s.student_id, field, -1);
+              await repo.adjustCredit?.(s.student_id, 'free_questions_remaining', -1);
             } catch (creditError) {
               console.error('Credit deduction failed:', creditError);
             }
@@ -750,6 +765,29 @@ export function createApp({
     });
     await audit(req.user, target.id, 'free-questions-granted');
     res.status(201).json({ free_questions_remaining: remaining });
+  });
+  app.get('/api/students/:id/credit-history', async (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'Admin access required.');
+    const target = await repo.get('users', req.params.id);
+    if (target?.role !== 'student') fail(404, 'Student not found.');
+    const packagesById = Object.fromEntries(
+      (await repo.list('credit_packages')).map((p) => [p.id, p]),
+    );
+    const purchases = (await repo.list('credit_purchases'))
+      .filter((p) => p.student_id === target.id)
+      .map((p) => ({
+        type: 'purchase',
+        id: p.id,
+        created_at: p.created_at,
+        package_name: packagesById[p.package_id]?.name || 'Deleted package',
+        price_paid_rs: p.price_paid_rs,
+        question_credits_granted: p.question_credits_granted,
+        note: p.note,
+      }));
+    const grants = (await repo.list('free_question_grants'))
+      .filter((g) => g.student_id === target.id)
+      .map((g) => ({ type: 'grant', id: g.id, created_at: g.created_at, amount: g.amount }));
+    res.json([...purchases, ...grants].sort((a, b) => b.created_at.localeCompare(a.created_at)));
   });
   app.get('/api/assignments', async (req, res) => {
     if (req.user.role !== 'admin') fail(403, 'Admin access required.');

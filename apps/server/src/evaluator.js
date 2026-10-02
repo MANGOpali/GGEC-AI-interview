@@ -153,13 +153,12 @@ export function createEvaluator({
           });
           // Charge for the question only once it's actually scored, and only once per answer
           // (the `applied` flag above skips this if another concurrent worker already won the
-          // race to evaluate the same answer). Staff testing their own account never pays.
-          if (applied && !s.is_staff_test) {
-            const field = s.practice_category
-              ? 'free_questions_remaining'
-              : 'interview_question_credits_remaining';
+          // race to evaluate the same answer). Full interviews are charged entirely up front at
+          // session creation (see app.js's POST /sessions) -- only category/free-question
+          // practice is charged here, per answer. Staff testing their own account never pays.
+          if (applied && !s.is_staff_test && s.practice_category) {
             try {
-              await repo.adjustCredit?.(s.student_id, field, -1);
+              await repo.adjustCredit?.(s.student_id, 'free_questions_remaining', -1);
             } catch (error) {
               console.error('Credit deduction failed:', error);
             }

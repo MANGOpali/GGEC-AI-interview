@@ -884,7 +884,7 @@ test('minimal student profile: only university, course and intake are required',
   assert.equal(answered.answers.length, 1);
   assert.equal((await repo.profile(demoUsers[0].id)).accommodation, '');
 });
-test('interview credits gate full and category practice starts, and the synchronous path charges per answer', async (t) => {
+test('interview credits gate full and category practice starts; full interviews are charged entirely at creation, category practice per answer', async (t) => {
   const { as, repo } = await setup(t, {
     name: 'fixture',
     evaluateAnswer: async () => fullEval(),
@@ -903,9 +903,15 @@ test('interview credits gate full and category practice starts, and the synchron
   await repo.put('users', {
     ...(await repo.get('users', demoUsers[0].id)),
     interview_question_credits_remaining: 20,
+    free_questions_remaining: 2,
   });
-  let s = (await as().post('/sessions', { consent: true }).expect(201)).body;
-  s = (
+  const s = (await as().post('/sessions', { consent: true }).expect(201)).body;
+  // Charged the full 11 immediately on creation, before any answer is even submitted.
+  assert.equal(
+    (await repo.get('users', demoUsers[0].id)).interview_question_credits_remaining,
+    9,
+  );
+  const answered = (
     await as()
       .post(`/sessions/${s.id}/answers`, {
         version: s.version,
@@ -914,11 +920,24 @@ test('interview credits gate full and category practice starts, and the synchron
       })
       .expect(200)
   ).body;
-  assert.equal(s.answers[0].evaluation.relevance, 8);
+  assert.equal(answered.answers[0].evaluation.relevance, 8);
+  // Answering further questions in a full interview must not deduct anything more.
   assert.equal(
     (await repo.get('users', demoUsers[0].id)).interview_question_credits_remaining,
-    19,
+    9,
   );
+  const cat = (
+    await as().post('/sessions', { consent: true, category: 'Finance' }).expect(201)
+  ).body;
+  await as()
+    .post(`/sessions/${cat.id}/answers`, {
+      version: cat.version,
+      request_id: randomUUID(),
+      transcript: 'A specific, honest answer about finances.',
+    })
+    .expect(200);
+  // Category practice is still charged per answer from the separate free-questions pool.
+  assert.equal((await repo.get('users', demoUsers[0].id)).free_questions_remaining, 1);
 });
 test('admin packages, purchases and free-question grants top up the right balance', async (t) => {
   const { as, repo } = await setup(t);
@@ -952,4 +971,15 @@ test('admin packages, purchases and free-question grants top up the right balanc
   const finalUser = await repo.get('users', demoUsers[0].id);
   assert.equal(finalUser.interview_question_credits_remaining, 95);
   assert.equal(finalUser.free_questions_remaining, 7);
+  await as('counsellor').get(`/students/${demoUsers[0].id}/credit-history`).expect(403);
+  const history = (
+    await as('admin').get(`/students/${demoUsers[0].id}/credit-history`).expect(200)
+  ).body;
+  assert.equal(history.length, 2);
+  const purchase = history.find((h) => h.type === 'purchase');
+  assert.equal(purchase.package_name, '5 Mock Interviews');
+  assert.equal(purchase.price_paid_rs, 500);
+  assert.equal(purchase.question_credits_granted, 95);
+  const grant = history.find((h) => h.type === 'grant');
+  assert.equal(grant.amount, 7);
 });

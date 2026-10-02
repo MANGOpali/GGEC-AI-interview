@@ -402,7 +402,10 @@ test('answers submitted during an active interview are scored without waiting fo
  await evaluator.enqueue(s.id);release();await evaluator.idle();
  const saved=await repo.session(s.id);assert.equal(saved.state,'MAIN_QUESTION');assert.equal(saved.answers.filter(a=>a.evaluation).length,2);assert.equal(seen.length,2);assert.equal(saved.evaluation_job.state,'complete');assert.equal(saved.report,null);
 });
-test('scored answers charge interview credits by default, free questions for category practice, and nothing for staff tests', async () => {
+test('scored answers charge free questions for category practice only, never interview credits, and nothing for staff tests', async () => {
+  // Full interviews are charged entirely up front at session creation (app.js's POST
+  // /sessions), not per answer here -- a full-interview session must never touch
+  // interview_question_credits_remaining through the evaluator.
   const studentId = '10000000-0000-4000-8000-000000000001';
   const full = session('full', [answer(0, seedQuestions[0]), answer(1, seedQuestions[1])]);
   full.state = 'MAIN_QUESTION';
@@ -423,7 +426,7 @@ test('scored answers charge interview credits by default, free questions for cat
   await ev.idle();
   const forStudent = (field) =>
     repo.creditCalls.filter((c) => c.studentId === studentId && c.field === field).length;
-  assert.equal(forStudent('interview_question_credits_remaining'), 2);
+  assert.equal(forStudent('interview_question_credits_remaining'), 0);
   assert.equal(forStudent('free_questions_remaining'), 1);
-  assert.equal(repo.creditCalls.length, 3, 'staff test session must never be charged');
+  assert.equal(repo.creditCalls.length, 1, 'only the category-practice answer should be charged');
 });

@@ -68,6 +68,26 @@ export function Title({ eyebrow, title, description }) {
 export function Badge({ tone = 'muted', children }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
+// A deliberate, must-click dialog -- no backdrop-click-to-dismiss, since the whole point is an
+// explicit decision (e.g. confirming a non-refundable credit spend) rather than an easy escape.
+export function ConfirmDialog({ title, children, confirmLabel = 'Confirm', onConfirm, onCancel, busy }) {
+  return (
+    <div className="modal-overlay">
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <h2>{title}</h2>
+        <div className="modal-body">{children}</div>
+        <div className="actions">
+          <Button secondary type="button" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={onConfirm} disabled={busy}>
+            {busy ? 'Starting…' : confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 export function SearchInput({ value, onChange, placeholder = 'Search…' }) {
   return (
     <label className="search-input">
