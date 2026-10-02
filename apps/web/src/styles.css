@@ -101,6 +101,9 @@ svg {
   padding: 30px 20px 20px;
   display: flex;
   flex-direction: column;
+  /* Roles with more nav items (admin) can exceed the viewport height on shorter screens --
+     scroll inside the sidebar itself so the account/logout section is never clipped off. */
+  overflow-y: auto;
 }
 .brand {
   display: flex;
