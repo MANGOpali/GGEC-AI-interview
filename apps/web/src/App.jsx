@@ -196,7 +196,17 @@ export default function App() {
         <div className="nav-label">YOUR WORKSPACE</div>
         <nav>
           {nav.map(([id, Icon, name]) => (
-            <button key={id} onClick={() => navigate(id)} className={page === id ? 'active' : ''}>
+            <button
+              key={id}
+              onClick={() => {
+                // The Start Interview / Test interview nav buttons always start a fresh attempt --
+                // a report left over from opening a past attempt (via Dashboard/Profile) must not
+                // leak into this tab and show up instead of the consent screen.
+                if (id === 'interview' || id === 'practice') setSelected(null);
+                navigate(id);
+              }}
+              className={page === id ? 'active' : ''}
+            >
               <Icon size={19} />
               {name}
             </button>
