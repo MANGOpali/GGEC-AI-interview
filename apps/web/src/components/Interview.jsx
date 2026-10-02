@@ -14,7 +14,6 @@ import { speech, voice } from '../services/speech';
 import { transition } from '../services/machine';
 import { Button, Title } from './common';
 import Report from './Report';
-import QuestionAngles from './QuestionAngles';
 
 // Testing only: disables the auto-stop-at-timeout behavior below. Flip back to true to restore it.
 const ENFORCE_TIME_LIMITS = false;
@@ -490,7 +489,6 @@ export default function Interview({
           title="A little preparation. A big difference."
           description="A guided conversation about your studies, finances and future plans."
         />
-        {!rules?.enabled && <QuestionAngles />}
         <section className="card consent">
           <span className="empty-icon">
             <Mic size={30} />
