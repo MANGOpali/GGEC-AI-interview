@@ -1,7 +1,32 @@
+import { useEffect, useState } from 'react';
 import Coaching from './Coaching';
 import EvaluationProgress from './EvaluationProgress';
 import { Download, ShieldCheck } from 'lucide-react';
 import { Button, Title, date } from './common';
+
+// Eases a number from 0 to target on mount/change -- used for the score summary and every ring
+// so the report feels like it's actively computing rather than just appearing as static text.
+function useAnimatedNumber(target, duration = 900) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (target == null) {
+      setValue(0);
+      return;
+    }
+    let frame,
+      start = null;
+    const tick = (ts) => {
+      if (start === null) start = ts;
+      const progress = Math.min(1, (ts - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(target * eased);
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+  return value;
+}
 
 // Hand-rolled circular progress ring (no charting library) -- same approach already used
 // elsewhere in this app for the camera "Recording" pulse and the ID-check scan animation.
@@ -11,7 +36,8 @@ function RingStat({ label, value }) {
     radius = (size - stroke) / 2,
     circumference = 2 * Math.PI * radius;
   const pct = Math.max(0, Math.min(100, value));
-  const offset = circumference * (1 - pct / 100);
+  const animated = useAnimatedNumber(pct);
+  const offset = circumference * (1 - animated / 100);
   const color = pct >= 75 ? '#1fa971' : pct >= 50 ? '#d08a10' : '#D01020';
   return (
     <div className="ring-stat">
@@ -30,7 +56,7 @@ function RingStat({ label, value }) {
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
         <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" className="ring-stat-value">
-          {Math.round(pct)}
+          {Math.round(animated)}
         </text>
       </svg>
       <span className="ring-stat-label">{label}</span>
@@ -40,6 +66,7 @@ function RingStat({ label, value }) {
 
 export default function Report({ session: s, staff, onHold, onUpdate, onPractice }) {
   const r = s.report;
+  const animatedScore = useAnimatedNumber(r?.overall_score);
   const priorities = [...s.answers]
     .filter((a) => a.evaluation?.feedback)
     .sort((a, b) => (a.answer_score ?? 100) - (b.answer_score ?? 100))
@@ -189,7 +216,7 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
                 AI Score Summary
               </span>
               <div className="score-summary-value">
-                {r.overall_score === null ? '—' : `${r.overall_score}%`}
+                {r.overall_score === null ? '—' : `${Math.round(animatedScore)}%`}
               </div>
               <p className="muted">{r.readiness_level}</p>
               <p className="muted">
@@ -251,7 +278,7 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
               </div>
             )}
           </div>
-          <div className="card">
+          <div className="card feedback-card">
             <h2>Your feedback</h2>
             <p className="muted">{r.notice}</p>
             {r.scoring_version && (
@@ -298,7 +325,7 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
         </>
       )}
       {s.state === 'REPORT' && !s.retained_at && (
-        <details className="card">
+        <details className="card practice-examples">
           <summary>Practice examples</summary>
           <Coaching session={s} />
         </details>

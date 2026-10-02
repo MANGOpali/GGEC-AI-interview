@@ -921,6 +921,96 @@ select:focus {
   border-radius: 5px;
   transition: width 0.3s;
 }
+.eval-progress-track {
+  height: 8px;
+  margin: 12px 0 14px;
+  position: relative;
+}
+.eval-progress-track > div {
+  border-radius: 5px;
+  background: linear-gradient(90deg, #D01020, #ff6b57);
+  position: relative;
+  overflow: hidden;
+}
+.eval-progress-track.working > div::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent
+  );
+  animation: eval-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes eval-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.eval-status-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.eval-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+.eval-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #D01020;
+  animation: eval-dot-bounce 1.2s ease-in-out infinite;
+}
+.eval-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.eval-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes eval-dot-bounce {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.eval-spark {
+  display: inline-flex;
+  color: #D01020;
+  animation: eval-spark-pulse 1.6s ease-in-out infinite;
+}
+@keyframes eval-spark-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eval-progress-track.working > div::after,
+  .eval-dots i,
+  .eval-spark {
+    animation: none !important;
+  }
+}
 .question {
   font-size: 24px;
   line-height: 1.35;
@@ -1145,6 +1235,49 @@ summary {
   gap: 16px;
   margin: 21px 0;
 }
+@keyframes report-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.report-grid > div,
+.feedback-card,
+.practice-examples {
+  animation: report-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.report-grid > div:nth-child(1) {
+  animation-delay: 0.03s;
+}
+.report-grid > div:nth-child(2) {
+  animation-delay: 0.09s;
+}
+.report-grid > div:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.report-grid > div:nth-child(4) {
+  animation-delay: 0.21s;
+}
+.feedback-card {
+  animation-delay: 0.2s;
+}
+.practice-examples {
+  animation-delay: 0.26s;
+  margin-top: 20px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-grid > div,
+  .feedback-card,
+  .practice-examples,
+  .ring-stat circle {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 .four-cs-card {
   grid-column: 1 / -1;
 }
@@ -1173,6 +1306,11 @@ summary {
   letter-spacing: -1.5px;
   margin: 14px 0 6px;
   color: #141c33;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, #141c33, #3a4c90);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .ring-grid-card h2,
 .question-list-card h2 {
@@ -1193,6 +1331,10 @@ summary {
   font-size: 18px;
   font-weight: 700;
   fill: #20325a;
+  font-variant-numeric: tabular-nums;
+}
+.ring-stat circle:nth-child(2) {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .ring-stat-label {
   font-size: 10px;
@@ -1211,9 +1353,15 @@ summary {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px 0;
+  padding: 10px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
   border-bottom: 1px solid #eef1f9;
   font-size: 12px;
+  transition: background 0.15s ease;
+}
+.question-list li:hover {
+  background: rgba(90, 109, 146, 0.06);
 }
 .question-list li:last-child {
   border-bottom: 0;

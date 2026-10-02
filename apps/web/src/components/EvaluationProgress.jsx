@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { Sparkles } from 'lucide-react';
+
 import { api } from '../services/api';
 
 import { Button } from './common';
@@ -85,29 +87,43 @@ export default function EvaluationProgress({ session, onUpdate }) {
 
   const working = status && ['queued', 'running'].includes(status.state);
 
+  const pct = status ? Math.round((status.evaluated / Math.max(1, status.total)) * 100) : 0;
   return (
-    <section className="card" aria-label="Evaluation progress">
-      <h2>Answer evaluation</h2>
+    <section className="card eval-progress" aria-label="Evaluation progress">
+      <div className="section-title">
+        <h2>Answer evaluation</h2>
+        {working && (
+          <span className="eval-spark" aria-hidden="true">
+            <Sparkles size={16} />
+          </span>
+        )}
+      </div>
 
-      <p role="status" aria-live="polite">
+      <p role="status" aria-live="polite" className="eval-status-line">
         {!status
           ? 'Checking evaluation…'
           : `${status.evaluated} of ${status.total} answers evaluated`}
 
-        {working
-          ? status.state === 'queued'
-            ? ' · Waiting to start'
-            : ' · Evaluating answers…'
-          : ''}
+        {working && (
+          <span className="eval-dots" aria-hidden="true">
+            {status.state === 'queued' ? ' Waiting to start' : ' Evaluating answers'}
+            <i />
+            <i />
+            <i />
+          </span>
+        )}
       </p>
 
       {status && (
-        <progress
+        <div
+          className={`progress-track eval-progress-track${working ? ' working' : ''}`}
+          role="progressbar"
           aria-label="Answers evaluated"
-          max={Math.max(1, status.total)}
-          value={status.evaluated}
-          style={{ width: '100%' }}
-        />
+          aria-valuenow={status.evaluated}
+          aria-valuemax={status.total}
+        >
+          <div style={{ width: `${pct}%` }} />
+        </div>
       )}
 
       {working && (
