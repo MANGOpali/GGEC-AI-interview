@@ -1490,6 +1490,9 @@ th {
 .pre {
   white-space: pre-wrap;
 }
+.resource {
+  margin-bottom: 18px;
+}
 .resource .pre {
   margin: 0;
 }
