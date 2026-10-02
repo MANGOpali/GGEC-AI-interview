@@ -255,9 +255,6 @@ nav button.active:hover {
   box-shadow: 0 8px 24px rgba(31, 41, 77, 0.05);
   font-size: 11px;
   color: #7687a2;
-  position: sticky;
-  top: 14px;
-  z-index: 5;
 }
 .topbar b {
   font-weight: 500;
