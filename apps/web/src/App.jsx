@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 import {
   BookOpen,
   FileText,
@@ -296,6 +297,7 @@ export default function App() {
               {notice}
             </div>
           )}
+          <ErrorBoundary key={page}>
           <Suspense fallback={<div className="spinner" aria-hidden="true" />}>
           {page === 'dashboard' && (
             <Dashboard
@@ -386,6 +388,7 @@ export default function App() {
           )}
           {page === 'admin' && <Administration run={run} />}
           </Suspense>
+          </ErrorBoundary>
           <footer>
             GLOBAL GATE EDUCATIONAL CONSULTANCY <span>Preparation for your next chapter.</span>
           </footer>
