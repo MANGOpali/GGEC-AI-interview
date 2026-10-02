@@ -1,7 +1,42 @@
 import Coaching from './Coaching';
 import EvaluationProgress from './EvaluationProgress';
-import { BookOpen, Download, ShieldCheck, Trophy } from 'lucide-react';
-import { Button, Stat, Title, date } from './common';
+import { Download, ShieldCheck } from 'lucide-react';
+import { Button, Title, date } from './common';
+
+// Hand-rolled circular progress ring (no charting library) -- same approach already used
+// elsewhere in this app for the camera "Recording" pulse and the ID-check scan animation.
+function RingStat({ label, value }) {
+  const size = 84,
+    stroke = 7,
+    radius = (size - stroke) / 2,
+    circumference = 2 * Math.PI * radius;
+  const pct = Math.max(0, Math.min(100, value));
+  const offset = circumference * (1 - pct / 100);
+  const color = pct >= 75 ? '#1fa971' : pct >= 50 ? '#d08a10' : '#D01020';
+  return (
+    <div className="ring-stat">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e9eef8" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" className="ring-stat-value">
+          {Math.round(pct)}
+        </text>
+      </svg>
+      <span className="ring-stat-label">{label}</span>
+    </div>
+  );
+}
 
 export default function Report({ session: s, staff, onHold, onUpdate, onPractice }) {
   const r = s.report;
@@ -133,25 +168,45 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
       )}
       {r && (
         <>
-          <div className="stats">
-            <Stat
-              icon={Trophy}
-              title="Overall practice score"
-              value={r.overall_score === null ? '—' : `${r.overall_score}/100`}
-              note={`${r.evaluated_answers}/${r.total_answers} answers evaluated`}
-            />
-            <Stat
-              icon={ShieldCheck}
-              title="Practice readiness"
-              value={r.readiness_level}
-              note="A guide for further preparation"
-            />
-            <Stat
-              icon={BookOpen}
-              title="Strong areas"
-              value={r.strong_areas.length}
-              note={r.strong_areas.join(', ') || 'Not assessed yet'}
-            />
+          <div className="report-grid">
+            <div className="card score-summary">
+              <span className="score-summary-label">
+                <ShieldCheck size={15} />
+                AI Score Summary
+              </span>
+              <div className="score-summary-value">
+                {r.overall_score === null ? '—' : `${r.overall_score}%`}
+              </div>
+              <p className="muted">{r.readiness_level}</p>
+              <p className="muted">
+                {r.evaluated_answers}/{r.total_answers} answers evaluated
+              </p>
+              {r.strong_areas.length > 0 && (
+                <p className="muted">Strong areas: {r.strong_areas.join(', ')}</p>
+              )}
+            </div>
+            <div className="card ring-grid-card">
+              <h2>Score breakdown</h2>
+              <div className="ring-grid">
+                {Object.entries(r.category_scores).map(([k, v]) => (
+                  <RingStat key={k} label={k} value={v} />
+                ))}
+              </div>
+            </div>
+            <div className="card question-list-card">
+              <h2>Question list</h2>
+              <ol className="question-list">
+                {s.answers.map((a, i) => (
+                  <li key={a.id}>
+                    <span className="question-list-number">{i + 1}</span>
+                    <span className="question-list-text">{a.question_text}</span>
+                    <span className="question-list-score">
+                      {a.answer_score != null ? `${a.answer_score}/100` : '—'}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
           <div className="card">
             <h2>Your feedback</h2>
@@ -169,19 +224,6 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
                 review. No overall score or ranking has been assigned.
               </div>
             )}
-            <div className="category-bars">
-              {Object.entries(r.category_scores).map(([k, v]) => (
-                <div key={k}>
-                  <span>
-                    {k}
-                    <b>{v}/100</b>
-                  </span>
-                  <div className="progress-track">
-                    <div style={{ width: `${v}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
             <h3>Your next 3 improvements</h3>
             <ul>
               {[...new Set(priorities.length ? priorities : r.recommendations || [])]
