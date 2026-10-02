@@ -709,6 +709,11 @@ select:focus {
   min-height: 105px;
   resize: vertical;
 }
+.field-hint {
+  color: #8091aa;
+  font-size: 10px;
+  font-weight: 400;
+}
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -721,6 +726,12 @@ select:focus {
 }
 .profile-form h2 {
   margin-bottom: 18px;
+}
+.profile-form .section-title {
+  margin-bottom: 10px;
+}
+.profile-form .section-title h2 {
+  margin-bottom: 0;
 }
 .checkbox {
   display: flex;

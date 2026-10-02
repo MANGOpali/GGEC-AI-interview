@@ -25,8 +25,9 @@ export default function Profile({
       <Title
         eyebrow="YOUR DETAILS"
         title="Your account, in your hands."
-        description="Keep your contact details current, review your saved attempts and update your study story."
+        description="Add your university and course first, then keep your contact details and saved attempts up to date."
       />
+      <StudyDetails value={profile} onSave={onSaveStudy} onDelete={onDeleteStudy} />
       <form
         className="card"
         onSubmit={async (e) => {
@@ -135,7 +136,6 @@ export default function Profile({
           </div>
         )}
       </section>
-      <StudyDetails value={profile} onSave={onSaveStudy} onDelete={onDeleteStudy} />
     </>
   );
 }

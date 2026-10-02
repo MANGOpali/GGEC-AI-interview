@@ -19,13 +19,23 @@ export function Button({ children, secondary = false, ...props }) {
     </button>
   );
 }
-export function Field({ name, value, onChange, type = 'text', required = false, label: labelText }) {
+export function Field({
+  name,
+  value,
+  onChange,
+  type = 'text',
+  required = false,
+  label: labelText,
+  placeholder,
+  hint,
+}) {
   return (
     <label className="field">
       {labelText ?? label(name)}
       {type === 'textarea' ? (
         <textarea
           required={required}
+          placeholder={placeholder}
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -33,12 +43,14 @@ export function Field({ name, value, onChange, type = 'text', required = false, 
         <input
           required={required}
           type={type}
+          placeholder={placeholder}
           onBlur={type === 'email' ? (e) => onChange(e.target.value.trim()) : undefined}
           min={type === 'number' ? 0 : undefined}
           value={value ?? ''}
           onChange={(e) => onChange(type === 'number' ? Number(e.target.value) : e.target.value)}
         />
       )}
+      {hint && <small className="field-hint">{hint}</small>}
     </label>
   );
 }
