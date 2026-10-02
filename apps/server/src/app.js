@@ -356,28 +356,37 @@ export function createApp({
     await repo.remove('resources', req.params.id);
     res.sendStatus(204);
   });
+  const sessionListRow = (s) => ({
+    id: s.id,
+    student_id: s.student_id,
+    state: s.state,
+    practice_category: s.practice_category || null,
+    is_staff_test: !!s.is_staff_test,
+    started_at: s.started_at,
+    completed_at: s.completed_at,
+    report: s.report
+      ? {
+          overall_score: s.report.overall_score,
+          readiness_level: s.report.readiness_level,
+          scoring_version: s.report.scoring_version || null,
+        }
+      : null,
+  });
   app.get('/api/sessions', async (req, res) => {
-    const rows = [];
-    for (const s of await repo.sessions())
-      if (await canRead(req.user, s.student_id)) {
-        await audit(req.user, s.student_id, 'session-list');
-        rows.push({
-          id: s.id,
-          student_id: s.student_id,
-          state: s.state,
-          practice_category: s.practice_category || null,
-          is_staff_test: !!s.is_staff_test,
-          started_at: s.started_at,
-          completed_at: s.completed_at,
-          report: s.report
-            ? {
-                overall_score: s.report.overall_score,
-                readiness_level: s.report.readiness_level,
-                scoring_version: s.report.scoring_version || null,
-              }
-            : null,
-        });
-      }
+    let rows;
+    if (req.user.role === 'student') {
+      // A student can always read their own sessions (canRead's first check) and audit() is a
+      // no-op for non-staff anyway -- skip straight to a database-filtered query instead of
+      // scanning every student's sessions just to throw most of them away.
+      rows = (await repo.sessionsForStudent(req.user.id)).map(sessionListRow);
+    } else {
+      rows = [];
+      for (const s of await repo.sessions())
+        if (await canRead(req.user, s.student_id)) {
+          await audit(req.user, s.student_id, 'session-list');
+          rows.push(sessionListRow(s));
+        }
+    }
     res.json(rows.sort((a, b) => b.started_at.localeCompare(a.started_at)));
   });
   app.post('/api/sessions', async (req, res) => {

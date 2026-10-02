@@ -83,9 +83,10 @@ export default function App() {
     setLoading(true);
     setError('');
     try {
+      // refresh() already fetches /me (along with /profile and /sessions, in parallel) --
+      // this used to also fetch /me on its own first, paying for an extra sequential round
+      // trip on every login for data refresh() was about to fetch again anyway.
       setConfig(await health());
-      const u = await api('/me');
-      setUser(u);
       await refresh();
     } catch (e) {
       if (e.status !== 401) setError(e.message);

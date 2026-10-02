@@ -23,7 +23,12 @@ const evaluator = createEvaluator({
   // this invocation alive until the queued scoring actually finishes.
   onBackgroundWork: waitUntil,
 });
-await evaluator.recover();
+// Not awaited: this scans the entire interview_sessions table to re-queue anything left
+// "queued"/"running" by a previous instance, which on Vercel's request-scoped cold starts
+// otherwise blocks the very first request (even /api/health) until the scan finishes -- and
+// that scan only gets slower as more sessions accumulate. It's a best-effort cleanup for a rare
+// case (a prior instance dying mid-evaluation), not something any request needs to wait on.
+evaluator.recover().catch((error) => console.error('Evaluator recovery failed:', error));
 
 const app = createApp({
   ...config,

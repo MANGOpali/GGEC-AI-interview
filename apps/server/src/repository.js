@@ -105,6 +105,11 @@ export async function localRepository(path, vault) {
     async sessions() {
       return (await this.list('interview_sessions')).map(decode);
     },
+    async sessionsForStudent(studentId) {
+      return (await this.list('interview_sessions'))
+        .filter((s) => s.student_id === studentId)
+        .map(decode);
+    },
     async session(id) {
       const s = await this.get('interview_sessions', id);
       return s ? decode(s) : null;
@@ -174,6 +179,17 @@ export function supabaseRepository(url, key, vault) {
     }
     return data;
   };
+  const mapSessionRow = (r) => ({
+    ...r.data,
+    id: r.id,
+    student_id: r.student_id,
+    version: r.version,
+    profile_snapshot: {},
+    report: r.report_summary
+      ? { ...r.report_summary, scoring_version: r.data.report_scoring_version || null }
+      : null,
+    answers: [],
+  });
   return {
     kind: 'supabase',
     client,
@@ -220,17 +236,17 @@ export function supabaseRepository(url, key, vault) {
     },
     async sessions() {
       const rows = await this.list('interview_sessions');
-      return rows.map((r) => ({
-        ...r.data,
-        id: r.id,
-        student_id: r.student_id,
-        version: r.version,
-        profile_snapshot: {},
-        report: r.report_summary
-          ? { ...r.report_summary, scoring_version: r.data.report_scoring_version || null }
-          : null,
-        answers: [],
-      }));
+      return rows.map(mapSessionRow);
+    },
+    // A student only ever needs their own sessions -- filtering at the database instead of
+    // fetching every student's rows and discarding most of them in JS. The admin/counsellor
+    // listing still needs the full scan (sessions() above) since canRead's assignment logic
+    // isn't a single-column filter.
+    async sessionsForStudent(studentId) {
+      const rows = await result(
+        client.from('interview_sessions').select('*').eq('student_id', studentId).order('id'),
+      );
+      return rows.map(mapSessionRow);
     },
     async session(id) {
       const row = await this.get('interview_sessions', id);
