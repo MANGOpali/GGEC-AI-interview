@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { ClipboardList, Copy, ShieldCheck, UserCog, UserPlus, Users } from 'lucide-react';
 import { api } from '../services/api';
-import { Badge, Button, Stat, Title } from './common';
+import { Badge, Button, Field, Stat, Title } from './common';
 
 const roleTone = { admin: 'role-admin', counsellor: 'role-counsellor', student: 'role-student' };
 
@@ -11,6 +11,12 @@ export default function Administration({ run }) {
     [logs, setLogs] = useState([]),
     [c, setC] = useState(''),
     [s, setS] = useState('');
+  const [newName, setNewName] = useState(''),
+    [newEmail, setNewEmail] = useState(''),
+    [newPhone, setNewPhone] = useState(''),
+    [newRole, setNewRole] = useState('student'),
+    [creating, setCreating] = useState(false),
+    [created, setCreated] = useState(null);
   async function load() {
     const [u, a, l] = await Promise.all([api('/users'), api('/assignments'), api('/audit')]);
     setUsers(u);
@@ -42,6 +48,78 @@ export default function Administration({ run }) {
           note="Counsellor ↔ student links"
         />
       </div>
+      <section className="card">
+        <h2>Create an account</h2>
+        <p className="muted">
+          Self-registration is disabled. Accounts (student, counsellor or admin) are created here;
+          share the one-time password with the person directly.
+        </p>
+        <form
+          className="form-grid"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setCreating(true);
+            const result = await run(async () => {
+              const r = await api('/users', 'POST', {
+                name: newName,
+                email: newEmail,
+                ...(newPhone ? { phone: newPhone } : {}),
+                role: newRole,
+              });
+              await load();
+              return r;
+            });
+            setCreating(false);
+            if (result) {
+              setCreated(result);
+              setNewName('');
+              setNewEmail('');
+              setNewPhone('');
+              setNewRole('student');
+            }
+          }}
+        >
+          <Field name="name" label="Full name" value={newName} onChange={setNewName} required />
+          <Field name="email" type="email" value={newEmail} onChange={setNewEmail} required />
+          <Field name="phone" type="tel" label="Phone (optional)" value={newPhone} onChange={setNewPhone} />
+          <label className="field">
+            Role
+            <select value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+              <option value="student">Student</option>
+              <option value="counsellor">Counsellor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <Button disabled={creating}>
+            <UserPlus size={17} />
+            {creating ? 'Creating…' : 'Create account'}
+          </Button>
+        </form>
+        {created && (
+          <div className="alert">
+            <b>
+              Account created for {created.name} ({created.role})
+            </b>
+            <p>
+              Email: {created.email}
+              <br />
+              One-time password: <code>{created.password}</code>
+            </p>
+            <Button
+              secondary
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(created.password)}
+            >
+              <Copy size={15} />
+              Copy password
+            </Button>
+            <p className="muted">
+              This password is shown once and not stored anywhere else. Share it directly with{' '}
+              {created.name}.
+            </p>
+          </div>
+        )}
+      </section>
       <section className="card">
         <h2>Staff directory</h2>
         {staff.length ? (
@@ -123,10 +201,7 @@ export default function Administration({ run }) {
         ) : (
           <p className="muted">No counsellor is assigned to a student yet.</p>
         )}
-        <p className="muted">
-          Staff roles are provisioned through trusted database administration. Signup always creates
-          a Student account.
-        </p>
+        <p className="muted">Create counsellor and admin accounts above, with the matching role.</p>
       </section>
       <section className="card audit">
         <div className="section-title">

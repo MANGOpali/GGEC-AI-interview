@@ -25,11 +25,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   accountSchema,
+  phoneSchema,
   profileSchema,
   questionSchema,
   resourceKinds,
@@ -617,6 +618,43 @@ export function createApp({
   app.get('/api/users', async (req, res) => {
     if (req.user.role !== 'admin') fail(403, 'Admin access required.');
     res.json(await repo.list('users'));
+  });
+  app.post('/api/users', async (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'Admin access required.');
+    if (repo.kind !== 'supabase') fail(400, 'Account creation requires Supabase mode.');
+    const input = z
+      .object({
+        name: z.string().trim().min(1).max(200),
+        email: z.email(),
+        phone: phoneSchema.optional(),
+        role: z.enum(['student', 'counsellor', 'admin']),
+      })
+      .parse(req.body);
+    const password = randomBytes(12).toString('base64url');
+    const { data, error } = await repo.client.auth.admin.createUser({
+      email: input.email,
+      password,
+      email_confirm: true,
+      user_metadata: { name: input.name, ...(input.phone ? { phone: input.phone } : {}) },
+    });
+    if (error)
+      fail(
+        409,
+        /already|exists/i.test(error.message)
+          ? 'An account with this email already exists.'
+          : 'Could not create the account.',
+      );
+    if (input.role !== 'student') {
+      const { error: roleError } = await repo.client
+        .from('users')
+        .update({ role: input.role })
+        .eq('id', data.user.id);
+      if (roleError) fail(500, 'Account created but role assignment failed. Check it in Supabase.');
+    }
+    await audit(req.user, data.user.id, 'account-created');
+    res
+      .status(201)
+      .json({ id: data.user.id, email: input.email, name: input.name, role: input.role, password });
   });
   app.get('/api/assignments', async (req, res) => {
     if (req.user.role !== 'admin') fail(403, 'Admin access required.');

@@ -663,6 +663,17 @@ test('account phone is validated, updatable and cannot change a role', async (t)
   assert.equal((await as().get('/me')).body.role, 'student');
   assert.equal((await repo.get('users', demoUsers[0].id)).phone, '+234 801 234 5678');
 });
+test('admin-created accounts require admin access and Supabase mode', async (t) => {
+  const { as } = await setup(t);
+  const input = { name: 'New Student', email: 'new.student@example.com', role: 'student' };
+  await as().post('/users', input).expect(403);
+  await as('counsellor').post('/users', input).expect(403);
+  // The test harness runs on the local JSON repo (demo mode); real account creation needs
+  // Supabase's admin API, which only exists in Supabase mode.
+  await as('admin').post('/users', input).expect(400);
+  await as('admin').post('/users', { ...input, email: 'not-an-email' }).expect(400);
+  await as('admin').post('/users', { ...input, role: 'owner' }).expect(400);
+});
 
 test('student resources are read-only, admin-managed and hide unpublished entries', async (t) => {
   const { as } = await setup(t);

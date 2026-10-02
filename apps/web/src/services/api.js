@@ -8,16 +8,6 @@ export const auth = {
     const { error } = await authClient.auth.signInWithPassword({ email: email.trim(), password });
     if (error) throw error;
   },
-  async signUp(email, password, name, phone) {
-    if (!authClient) throw new Error('Supabase browser settings are missing.');
-    const { data, error } = await authClient.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { name: name.trim(), phone: phone.trim() } },
-    });
-    if (error) throw error;
-    return data;
-  },
   async changePassword(email, currentPassword, newPassword) {
     if (!authClient) throw new Error('Supabase browser settings are missing.');
     const { error: verify } = await authClient.auth.signInWithPassword({
