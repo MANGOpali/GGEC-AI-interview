@@ -4,6 +4,8 @@ import {
   ArrowRight,
   BookOpen,
   Clock,
+  ClipboardList,
+  Filter,
   Mic,
   ShieldCheck,
   Square,
@@ -533,37 +535,32 @@ export default function Interview({
             <Mic size={30} />
           </span>
           <h2>Ready when you are.</h2>
-          <label className="field">
-            Practice focus
+          <label className="field practice-focus">
+            <span className="field-label-row">
+              <Filter size={14} /> Practice focus
+            </span>
             <select value={category} onChange={(e) => setCategory(e.target.value)}>
               <option value="">Full interview</option>
               {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
+            <small className="field-hint">
+              {category
+                ? 'Focused practice on this category only — scored separately, not on the leaderboard.'
+                : 'Choose a weak category from a past report to focus on, or keep Full interview.'}
+            </small>
           </label>
-          <p className="muted">
-            Choose a weak category from your previous report to practise it. Category practice has
-            its own score and is excluded from the leaderboard.
-          </p>
-          {rules?.enabled && !category ? (
-            <p>
-              19 questions: 7 majors, up to 9 linked cross-questions, and extras filling the
-              remaining slots. Each major may have 0–3 cross-questions. Introduction comes first.
-              Major answers should reach two minutes; early submission is allowed and flagged.
-              Cross-answers should stay under one minute. Extra answers may be shorter when
-              complete. Longer major/extra answers are allowed, with a 15-minute recording safety
-              limit. Scoring runs in the background as answers are saved.
-            </p>
-          ) : (
-            <p>
-              You’ll answer the active questions in your consultancy’s question bank. Each main
-              question gives you about two minutes. Answers save immediately; AI scoring runs after
-              you finish, without live AI follow-up questions. Recording stops automatically when
-              the time is up.
-            </p>
-          )}
           <div className="info-grid">
+            <div>
+              <ClipboardList />
+              <b>{rules?.enabled && !category ? '19 guided questions' : 'Guided practice questions'}</b>
+              <p>
+                {rules?.enabled && !category
+                  ? 'Majors, cross-questions and extras, paced like the real interview.'
+                  : "Your consultancy's question bank, scored after you finish."}
+              </p>
+            </div>
             <div>
               <BookOpen />
               <b>Personal context</b>
@@ -588,11 +585,9 @@ export default function Interview({
             </span>
           </label>
           <p className="muted">
-            Recordings are temporary. When Groq transcription is enabled, audio is sent to Groq
-            after you stop recording; otherwise browser recognition may use your browser provider.
-            GGEC does not save audio to its database. Transcripts are subject to the consultancy’s
-            retention policy (default 90 days), except when held for review. Practice feedback does
-            not predict an admission or visa decision.
+            Recordings are temporary and never saved to GGEC's database; audio is sent to Groq or
+            your browser only for transcription. Transcripts follow your consultancy's retention
+            policy (default 90 days). This is practice feedback, not an admission or visa decision.
           </p>
           {!profile && !staff ? (
             <Button onClick={onProfile}>
