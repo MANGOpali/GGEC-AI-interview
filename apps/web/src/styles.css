@@ -988,26 +988,9 @@ select:focus {
     transform: scale(1.15);
   }
 }
-.eval-spark {
-  display: inline-flex;
-  color: #D01020;
-  animation: eval-spark-pulse 1.6s ease-in-out infinite;
-}
-@keyframes eval-spark-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .eval-progress-track.working > div::after,
-  .eval-dots i,
-  .eval-spark {
+  .eval-dots i {
     animation: none !important;
   }
 }

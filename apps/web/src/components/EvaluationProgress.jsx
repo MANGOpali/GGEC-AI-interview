@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { Sparkles } from 'lucide-react';
-
 import { api } from '../services/api';
 
 import { Button } from './common';
@@ -90,14 +88,7 @@ export default function EvaluationProgress({ session, onUpdate }) {
   const pct = status ? Math.round((status.evaluated / Math.max(1, status.total)) * 100) : 0;
   return (
     <section className="card eval-progress" aria-label="Evaluation progress">
-      <div className="section-title">
-        <h2>Answer evaluation</h2>
-        {working && (
-          <span className="eval-spark" aria-hidden="true">
-            <Sparkles size={16} />
-          </span>
-        )}
-      </div>
+      <h2>Answer evaluation</h2>
 
       <p role="status" aria-live="polite" className="eval-status-line">
         {!status
