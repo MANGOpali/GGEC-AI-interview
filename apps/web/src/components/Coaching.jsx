@@ -17,7 +17,7 @@ export default function Coaching({ session }) {
     };
   }, [session.id, session.report?.evaluated_answers]);
   return (
-    <section className="card">
+    <section className="card coaching-card">
       <h2>Improve your next answer</h2>
       <p>
         These are example structures, not facts about you or scripts to memorise. Replace brackets

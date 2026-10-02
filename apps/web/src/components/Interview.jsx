@@ -741,7 +741,7 @@ export default function Interview({
           </div>
           <span className="eyebrow">{q.category}</span>
           <h2 className="question">{q.text}</h2>
-          <div className="camera-tile camera-tile-large">
+          <div className="camera-tile camera-tile-xl">
             <video ref={attachVideo} autoPlay muted playsInline />
             {cameraError && <p className="camera-tile-error">{cameraError}</p>}
             <span className="camera-tile-label">Camera preview only — never recorded or stored</span>
@@ -827,17 +827,6 @@ export default function Interview({
                     : 'Your answer is saved when you submit. You can resume saved attempts from your Profile.'}
           </p>
         </section>
-        <aside className="card tips">
-          <h2>Make it your answer.</h2>
-          <p>Explain your reason, support it with an example, and connect it to your plans.</p>
-          <hr />
-          <h3>Progress, not perfection</h3>
-          <p>
-            If you don’t know something, be honest. That’s a useful place to focus your next round
-            of research.
-          </p>
-          <span className="pill">{s.answers.length} answers saved</span>
-        </aside>
       </div>
     </>
   );

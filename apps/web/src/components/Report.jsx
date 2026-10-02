@@ -275,7 +275,7 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
                   <li key={i}>{shortFeedback(text)}</li>
                 ))}
             </ul>
-            <details>
+            <details className="feedback-details">
               <summary>View all feedback and consistency checks</summary>
               {[
                 ['Focus areas', r.weak_areas],
