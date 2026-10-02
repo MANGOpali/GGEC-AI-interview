@@ -150,7 +150,7 @@ export default function Interview({
     if (videoStream.current) return;
     setCameraError('');
     navigator.mediaDevices
-      ?.getUserMedia({ video: true, audio: false })
+      ?.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 360 } }, audio: false })
       .then((stream) => {
         videoStream.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
@@ -171,7 +171,7 @@ export default function Interview({
     let cancelled = false;
     setCameraError('');
     navigator.mediaDevices
-      ?.getUserMedia({ video: true, audio: false })
+      ?.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 360 } }, audio: false })
       .then((stream) => {
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -332,7 +332,7 @@ export default function Interview({
         awayStartedAt.current = null;
         if (now >= graceUntil.current) setViolationWarning('');
       }
-    }, 400);
+    }, 1000);
     return () => {
       cancelled = true;
       clearInterval(tick);
