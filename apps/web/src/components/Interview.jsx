@@ -585,8 +585,8 @@ export default function Interview({
             </span>
           </label>
           <p className="muted">
-            Recordings are temporary and never saved to GGEC's database; audio is sent to Groq or
-            your browser only for transcription. Transcripts follow your consultancy's retention
+            Recordings are temporary and never saved to GGEC's database; audio is sent to our
+            transcription provider or your browser only for transcription. Transcripts follow your consultancy's retention
             policy (default 90 days). This is practice feedback, not an admission or visa decision.
           </p>
           {!profile && !staff ? (

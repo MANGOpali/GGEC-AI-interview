@@ -184,7 +184,7 @@ export function createApp({
       })
       .parse(req.body);
     if (input.enabled && !['openai', 'groq'].includes(llm.name))
-      fail(409, 'Standards scoring requires the OpenAI-compatible or Groq scoring adapter.');
+      fail(409, 'Standards scoring requires a supported AI provider to be configured.');
     await standards.update(input.revision, (b) => {
       b.enabled = input.enabled;
       b.grammar_allowance = input.grammar_allowance;
