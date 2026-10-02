@@ -2,6 +2,7 @@
 // binds a persistent server with app.listen()), Vercel Functions are request-scoped: the
 // module runs to completion and the default export is invoked per request, so we build the
 // Express app and export it directly, with no app.listen() call.
+import { waitUntil } from '@vercel/functions';
 import { createApp } from '../src/app.js';
 import { configure } from '../src/config.js';
 import { createLlm } from '../src/llm.js';
@@ -16,6 +17,11 @@ const evaluator = createEvaluator({
   minIntervalMs: llm.name === 'groq' ? 25000 : 3000,
   maxAttempts: 1,
   concurrency: llm.name === 'openai' ? 3 : 1,
+  // Without this, the background evaluation queue is a bare fire-and-forget promise: Vercel's
+  // request-scoped Functions can freeze it mid-flight the instant the triggering request's
+  // response is sent, before it ever reaches the provider. waitUntil tells the platform to keep
+  // this invocation alive until the queued scoring actually finishes.
+  onBackgroundWork: waitUntil,
 });
 await evaluator.recover();
 

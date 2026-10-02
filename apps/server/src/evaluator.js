@@ -38,6 +38,13 @@ export function createEvaluator({
   retryWaitMs = 30000,
   maxAttempts = 1,
   concurrency = 1,
+  // On a long-running process (Render/local `npm start`) a detached `run()` promise keeps
+  // executing regardless -- the Node process never exits underneath it. On Vercel's
+  // request-scoped Functions there is no such guarantee: once a response is sent, a bare
+  // fire-and-forget promise can be frozen mid-flight before it ever reaches the provider call.
+  // Callers running there pass the platform's waitUntil so this invocation is kept alive until
+  // the queued work actually finishes.
+  onBackgroundWork,
 }) {
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 3)
     throw new Error('Evaluation concurrency must be between 1 and 3.');
@@ -240,7 +247,15 @@ export function createEvaluator({
         return 0;
       }
       queue.push(id);
-      void run();
+      const work = run();
+      work.catch(() => {});
+      try {
+        // Only meaningful inside an active request (e.g. recover()'s cold-start calls have no
+        // request context to attach to) -- best-effort, never fatal to enqueueing.
+        onBackgroundWork?.(work);
+      } catch {
+        /* no-op */
+      }
       return queue.length;
     } catch (error) {
       active.delete(id);
