@@ -87,7 +87,7 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
     y += 6;
     if (s.ended_reason === 'anti_cheat_violation') {
       paragraph(
-        "This attempt ended early — the camera repeatedly couldn't confirm the student was facing the screen. Answers already submitted are still scored normally below.",
+        'This attempt ended early due to repeated attention/focus violations during the interview. Answers already submitted are still scored normally below.',
       );
       y += 6;
     }
@@ -98,10 +98,24 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
       );
       paragraph(`Practice readiness: ${r.readiness_level}`);
       paragraph(`Strong areas: ${r.strong_areas.join(', ') || 'Not assessed yet'}`);
+      if (r.speech_metrics?.average_wpm != null) {
+        paragraph(`Speaking pace: ~${r.speech_metrics.average_wpm} words/min`);
+        paragraph(
+          `Filler words: ${r.speech_metrics.filler_word_count} (${r.speech_metrics.filler_rate_per_100_words} per 100 words)`,
+        );
+      }
       y += 6;
       heading('Category scores');
       Object.entries(r.category_scores).forEach(([k, v]) => paragraph(`${k}: ${v}/100`));
       y += 6;
+      if (r.four_cs) {
+        heading("Your 4 C's");
+        paragraph(`Coverage: ${r.four_cs.standard_coverage ?? '—'}/10`);
+        paragraph(`Clarity: ${r.four_cs.fluency_clarity ?? '—'}/10`);
+        paragraph(`Correctness: ${r.four_cs.overall_correctness ?? '—'}/10`);
+        paragraph(`Command: ${r.four_cs.grammar ?? '—'}/10`);
+        y += 6;
+      }
       const topPriorities = [...new Set(priorities.length ? priorities : r.recommendations || [])].slice(
         0,
         3,
@@ -152,8 +166,8 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
       </div>
       {s.ended_reason === 'anti_cheat_violation' && (
         <div className="alert error" role="alert">
-          This attempt ended early — the camera repeatedly couldn't confirm the student was
-          facing the screen. Answers already submitted are still scored normally below.
+          This attempt ended early due to repeated attention/focus violations during the
+          interview. Answers already submitted are still scored normally below.
         </div>
       )}
       {s.state === 'REPORT' && <EvaluationProgress session={s} onUpdate={onUpdate} />}
@@ -184,6 +198,17 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
               {r.strong_areas.length > 0 && (
                 <p className="muted">Strong areas: {r.strong_areas.join(', ')}</p>
               )}
+              {r.speech_metrics?.average_wpm != null && (
+                <>
+                  <hr />
+                  <span className="score-summary-label">Delivery</span>
+                  <p className="muted">Speaking pace: ~{r.speech_metrics.average_wpm} words/min</p>
+                  <p className="muted">
+                    Filler words: {r.speech_metrics.filler_word_count} (
+                    {r.speech_metrics.filler_rate_per_100_words} per 100 words)
+                  </p>
+                </>
+              )}
             </div>
             <div className="card ring-grid-card">
               <h2>Score breakdown</h2>
@@ -207,6 +232,24 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
                 ))}
               </ol>
             </div>
+            {r.four_cs && (
+              <div className="card four-cs-card">
+                <h2>Your 4 C's</h2>
+                <p className="muted">
+                  Coverage, Clarity, Correctness and Command — the four things this standards-based
+                  interview measures in every answer.
+                </p>
+                <div className="ring-grid">
+                  <RingStat label="Coverage" value={Math.round((r.four_cs.standard_coverage ?? 0) * 10)} />
+                  <RingStat label="Clarity" value={Math.round((r.four_cs.fluency_clarity ?? 0) * 10)} />
+                  <RingStat
+                    label="Correctness"
+                    value={Math.round((r.four_cs.overall_correctness ?? 0) * 10)}
+                  />
+                  <RingStat label="Command" value={Math.round((r.four_cs.grammar ?? 0) * 10)} />
+                </div>
+              </div>
+            )}
           </div>
           <div className="card">
             <h2>Your feedback</h2>

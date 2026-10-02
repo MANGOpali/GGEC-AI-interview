@@ -1088,9 +1088,18 @@ summary {
   gap: 16px;
   margin: 21px 0;
 }
+.four-cs-card {
+  grid-column: 1 / -1;
+}
 .score-summary {
   display: flex;
   flex-direction: column;
+}
+.score-summary hr {
+  border: 0;
+  border-top: 1px solid rgba(214, 221, 240, 0.7);
+  margin: 14px 0 10px;
+  width: 100%;
 }
 .score-summary-label {
   display: inline-flex;

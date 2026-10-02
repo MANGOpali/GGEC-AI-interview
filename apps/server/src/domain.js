@@ -253,6 +253,48 @@ export function applyAnswer(
   }
   return s;
 }
+// Deliberately conservative filler list: words like "like" or "actually" are too often used
+// legitimately to count as fillers without real NLP, and an over-counting heuristic would
+// undermine trust in the number more than it helps. Computed from data already stored per
+// answer (transcript, duration_seconds) -- no AI call, no extra cost.
+const FILLER_PATTERN = /\b(um+|uh+|erm+|hmm+|you know)\b/gi;
+function speechMetrics(evaluated) {
+  let totalWords = 0,
+    totalFillers = 0;
+  const wpmSamples = [];
+  for (const a of evaluated) {
+    if (!a.transcript) continue;
+    const words = a.transcript.trim().split(/\s+/).filter(Boolean);
+    totalWords += words.length;
+    totalFillers += (a.transcript.match(FILLER_PATTERN) || []).length;
+    if (a.duration_seconds > 5 && words.length > 0)
+      wpmSamples.push(words.length / (a.duration_seconds / 60));
+  }
+  return {
+    average_wpm: wpmSamples.length
+      ? Math.round(wpmSamples.reduce((a, b) => a + b, 0) / wpmSamples.length)
+      : null,
+    filler_word_count: totalFillers,
+    filler_rate_per_100_words: totalWords ? Math.round((totalFillers / totalWords) * 1000) / 10 : 0,
+  };
+}
+// "The 4 C's": an honest, memorable relabeling of the four axes the standards rubric already
+// scores per answer -- Coverage, Clarity, Correctness, Command (of English/grammar). Only
+// meaningful for standards-mode sessions; null elsewhere rather than fabricating scores for a
+// rubric that doesn't measure these axes.
+const STANDARDS_AXES = ['standard_coverage', 'fluency_clarity', 'overall_correctness', 'grammar'];
+function fourCs(s, evaluated) {
+  if (s.rubric_version !== standardVersion) return null;
+  return Object.fromEntries(
+    STANDARDS_AXES.map((k) => {
+      const vals = evaluated.map((a) => a.evaluation[k]).filter((v) => typeof v === 'number');
+      return [
+        k,
+        vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null,
+      ];
+    }),
+  );
+}
 export function buildReport(s) {
   const evaluated = s.answers.filter((a) => scoreAnswer(a.evaluation) !== null),
     categories = {};
@@ -304,6 +346,8 @@ export function buildReport(s) {
       .filter((a) => scoreAnswer(a.evaluation) < 50)
       .map((a) => ({ answer_id: a.id, question: a.question_text })),
     recommendations: evaluated.map((a) => a.evaluation.feedback).filter(Boolean),
+    speech_metrics: speechMetrics(evaluated),
+    four_cs: fourCs(s, evaluated),
     notice: reportNotice,
   };
 }

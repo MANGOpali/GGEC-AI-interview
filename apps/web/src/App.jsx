@@ -3,6 +3,7 @@ import {
   BookOpen,
   FileText,
   FlaskConical,
+  LayoutDashboard,
   LayoutTemplate,
   LogOut,
   Mic,
@@ -17,6 +18,7 @@ import Login from './components/Login';
 // Lazy-loaded: each becomes its own chunk, fetched only when a user actually navigates to it,
 // instead of every role downloading every other role's pages up front (students never need
 // Administration/Questions/Students/Calibration; staff rarely need the student-only pages).
+const Dashboard = lazy(() => import('./components/Dashboard'));
 const Calibration = lazy(() => import('./components/Calibration'));
 const Profile = lazy(() => import('./components/Profile'));
 const Interview = lazy(() => import('./components/Interview'));
@@ -29,11 +31,20 @@ const ResourceAdmin = lazy(() => import('./components/ResourceAdmin'));
 
 const ROOT = { student: 'student', counsellor: 'counsellor', admin: 'admin' };
 const ALLOWED = {
-  student: ['profile', 'interview', 'templates', 'research'],
-  counsellor: ['students', 'questions', 'ranking', 'practice', 'calibration'],
-  admin: ['students', 'questions', 'ranking', 'admin', 'practice', 'calibration', 'resources'],
+  student: ['dashboard', 'profile', 'interview', 'templates', 'research'],
+  counsellor: ['dashboard', 'students', 'questions', 'ranking', 'practice', 'calibration'],
+  admin: [
+    'dashboard',
+    'students',
+    'questions',
+    'ranking',
+    'admin',
+    'practice',
+    'calibration',
+    'resources',
+  ],
 };
-const HOME = { student: 'interview', counsellor: 'students', admin: 'students' };
+const HOME = { student: 'dashboard', counsellor: 'dashboard', admin: 'dashboard' };
 const DEFAULT_ROLE = 'student';
 function urlFor(role, page) {
   const root = ROOT[role] || DEFAULT_ROLE;
@@ -153,6 +164,7 @@ export default function App() {
   const staff = user.role !== 'student';
   const nav = staff
     ? [
+        ['dashboard', LayoutDashboard, 'Dashboard'],
         ['students', Users, 'Student progress'],
         ['questions', BookOpen, 'Question bank'],
         ['calibration', ShieldCheck, 'Scoring comparison'],
@@ -166,6 +178,7 @@ export default function App() {
           : []),
       ]
     : [
+        ['dashboard', LayoutDashboard, 'Dashboard'],
         ['profile', UserRound, 'Profile'],
         ['interview', Mic, 'Start Interview'],
         ['templates', LayoutTemplate, 'Templates'],
@@ -272,6 +285,16 @@ export default function App() {
             </div>
           )}
           <Suspense fallback={<div className="spinner" aria-hidden="true" />}>
+          {page === 'dashboard' && (
+            <Dashboard
+              user={user}
+              profile={profile}
+              sessions={sessions}
+              onStart={() => navigate('interview')}
+              onProfile={() => navigate('profile')}
+              openSession={openSession}
+            />
+          )}
           {page === 'profile' && (
             <Profile
               user={user}

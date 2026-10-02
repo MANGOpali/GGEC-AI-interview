@@ -66,6 +66,7 @@ export default function Interview({
   const graceUntil = useRef(0);
   const endingRef = useRef(false);
   const MAX_VIOLATIONS = 3;
+  const GRACE_MS = 4000;
   sRef.current = s;
   const [spokenSeconds, setSpokenSeconds] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null),
@@ -288,7 +289,6 @@ export default function Interview({
       });
     const YAW_THRESHOLD_DEG = 28;
     const SUSTAINED_MS = 2500;
-    const GRACE_MS = 4000;
     const tick = setInterval(() => {
       const fl = faceLandmarker.current;
       const video = videoRef.current;
@@ -315,17 +315,7 @@ export default function Interview({
         if (!awayStartedAt.current) awayStartedAt.current = now;
         else if (now - awayStartedAt.current > SUSTAINED_MS) {
           awayStartedAt.current = null;
-          violationCount.current += 1;
-          graceUntil.current = now + GRACE_MS;
-          if (violationCount.current >= MAX_VIOLATIONS) {
-            setViolationWarning('');
-            endForViolation();
-          } else {
-            voice.speak('Please face the camera.');
-            setViolationWarning(
-              `Please face the camera and keep it in view. Warning ${violationCount.current} of ${MAX_VIOLATIONS}.`,
-            );
-          }
+          registerViolation('camera');
         }
       } else {
         awayStartedAt.current = null;
@@ -339,6 +329,55 @@ export default function Interview({
       faceLandmarker.current = null;
     };
   }, [idChecked, cameraError, !!active]);
+  // Tab-switch / window-blur detection: the camera heuristic above only notices a face turning
+  // away, not a student alt-tabbing to look something up in another app/window. Reuses the same
+  // violation-escalation path (registerViolation) rather than a parallel system. A brief,
+  // accidental switch doesn't count -- only a sustained one does.
+  useEffect(() => {
+    if (!idChecked || cameraError || !active) return;
+    const AWAY_MS = 3000;
+    let hiddenSince = null;
+    const check = () => {
+      const now = Date.now();
+      if (now < graceUntil.current) {
+        hiddenSince = null;
+        return;
+      }
+      const away = document.hidden || !document.hasFocus();
+      if (away) {
+        if (!hiddenSince) hiddenSince = now;
+        else if (now - hiddenSince > AWAY_MS) {
+          hiddenSince = null;
+          registerViolation('tab');
+        }
+      } else {
+        hiddenSince = null;
+      }
+    };
+    const tick = setInterval(check, 1000);
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('blur', check);
+    window.addEventListener('focus', check);
+    return () => {
+      clearInterval(tick);
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('blur', check);
+      window.removeEventListener('focus', check);
+    };
+  }, [idChecked, cameraError, !!active]);
+  function registerViolation(reason) {
+    violationCount.current += 1;
+    graceUntil.current = Date.now() + GRACE_MS;
+    if (violationCount.current >= MAX_VIOLATIONS) {
+      setViolationWarning('');
+      endForViolation();
+    } else {
+      voice.speak(reason === 'tab' ? 'Please stay on this tab and face the camera.' : 'Please face the camera.');
+      setViolationWarning(
+        `${reason === 'tab' ? 'Please stay on this interview tab.' : 'Please face the camera and keep it in view.'} Warning ${violationCount.current} of ${MAX_VIOLATIONS}.`,
+      );
+    }
+  }
   async function endForViolation() {
     if (!sRef.current || endingRef.current) return;
     endingRef.current = true;

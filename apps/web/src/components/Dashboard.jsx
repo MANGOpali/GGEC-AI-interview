@@ -108,7 +108,7 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
             <ArrowUpRight size={18} />
           </button>
           <small>
-            Personal to your profile <span>•</span> Voice or text answers
+            Personal to your profile <span>•</span> Just like the real interview
           </small>
         </div>
         <div className="hero-art" aria-hidden="true">
@@ -187,7 +187,7 @@ export default function Dashboard({ user, profile, sessions, onStart, onProfile,
           <h2>Set yourself up well.</h2>
           {[
             ['01', 'Make it personal', 'Add your course, university and study plans.'],
-            ['02', 'Find a quiet moment', 'Check your microphone, or use text answers.'],
+            ['02', 'Find a quiet moment', 'Check your camera and microphone before you begin.'],
             ['03', 'Speak in your own words', 'Focus on your reasons and what you know.'],
           ].map(([n, t, d]) => (
             <div className="check-item" key={n}>

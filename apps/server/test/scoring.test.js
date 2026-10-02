@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scoreAnswer, rubricWeights } from '../src/scoring.js';
 import { buildReport, fullyEvaluated, mergeReport } from '../src/domain.js';
+import { standardVersion } from '../src/standards-bank.js';
 const evaluation = (value) => ({
   ...Object.fromEntries(Object.keys(rubricWeights).map((k) => [k, value])),
   feedback: 'Practice examples.',
@@ -80,4 +81,55 @@ test('readiness boundaries and narrative cannot replace deterministic scores', (
   assert.equal(r.overall_score, 60);
   assert.equal(r.readiness_level, 'Needs Practice');
   assert.deepEqual(r.recommendations, ['Research modules.']);
+});
+test('speech metrics count fillers and compute pace from transcripts, null with too little signal', () => {
+  const r = buildReport({
+    answers: [
+      answer('a', 8, {
+        transcript: 'Um, I think, uh, this is a great course for me and my career plans.',
+        duration_seconds: 30,
+      }),
+      answer('b', 7, {
+        transcript: 'I chose this university for its strong research reputation in my field.',
+        duration_seconds: 20,
+      }),
+    ],
+  });
+  assert.equal(r.speech_metrics.filler_word_count, 2);
+  assert.ok(r.speech_metrics.average_wpm > 0);
+  assert.ok(r.speech_metrics.filler_rate_per_100_words > 0);
+  const short = buildReport({
+    answers: [answer('a', 8, { transcript: 'Hello there.', duration_seconds: 2 })],
+  });
+  assert.equal(short.speech_metrics.average_wpm, null);
+});
+test("four_cs averages standards-mode axes and is null outside standards mode", () => {
+  const standardsAnswer = (id, overrides = {}) => ({
+    id,
+    question_id: id,
+    category: 'Intro',
+    weight: 1,
+    is_followup: false,
+    evaluation: {
+      scoring_version: standardVersion,
+      standard_coverage: 8,
+      fluency_clarity: 7,
+      grammar: 9,
+      overall_correctness: 8,
+      feedback: 'Good coverage.',
+      ...overrides,
+    },
+  });
+  const r = buildReport({
+    rubric_version: standardVersion,
+    answers: [
+      standardsAnswer('a'),
+      standardsAnswer('b', { standard_coverage: 6, fluency_clarity: 5 }),
+    ],
+  });
+  assert.equal(r.four_cs.standard_coverage, 7);
+  assert.equal(r.four_cs.fluency_clarity, 6);
+  assert.equal(r.four_cs.overall_correctness, 8);
+  assert.equal(r.four_cs.grammar, 9);
+  assert.equal(buildReport({ answers: [answer('a', 8)] }).four_cs, null);
 });
