@@ -28,7 +28,10 @@ const app = createApp({
   serveDir: null,
   supabaseConnectSrc: process.env.SUPABASE_URL,
   evaluator,
-  deferScoring: false,
+  // See src/index.js for why this is now deferred: every current session uses the standards
+  // rubric, where cross-questions are pre-planned rather than decided live by the model, so
+  // synchronous per-answer evaluation no longer buys real-time branching -- only latency.
+  deferScoring: true,
   transcriber: createTranscriber(process.env),
 });
 

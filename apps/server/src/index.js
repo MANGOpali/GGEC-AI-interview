@@ -29,11 +29,13 @@ const app = createApp({
   serveDir,
   supabaseConnectSrc: process.env.SUPABASE_URL,
   evaluator,
-  // Evaluate synchronously so the model can decide follow_up_needed in real time and the
-  // interview can branch into a live adaptive cross-question. Trades instant answer saves
-  // for a ~2-5s wait per answer while the model responds; failures still fall back to the
-  // background evaluator queue below.
-  deferScoring: false,
+  // Every session created today uses the standards rubric, where cross-questions are already
+  // pre-planned in the question list rather than decided live by the model (see
+  // applyAnswer/domain.js) -- synchronous per-answer evaluation no longer buys any real-time
+  // branching for current interviews, it only makes the student wait. Save instantly and let
+  // the background evaluator (above) score every answer, matching what the consent screen
+  // already tells students happens.
+  deferScoring: true,
   transcriber: createTranscriber(process.env),
 });
 const host = config.repo.kind === 'demo' ? '127.0.0.1' : process.env.HOST || '0.0.0.0';
