@@ -13,7 +13,9 @@ const llm = createLlm(process.env);
 const evaluator = createEvaluator({
   repo: config.repo,
   llm,
-  minIntervalMs: llm.name === 'groq' ? 25000 : 3000,
+  // 1200ms for openai (was 3000) -- still safely spaced against rate limits, just faster than
+  // the original conservative default. Groq's free tier genuinely needs the long gap.
+  minIntervalMs: llm.name === 'groq' ? 25000 : 1200,
   maxAttempts: 1,
   concurrency: llm.name === 'openai' ? 3 : 1,
 });

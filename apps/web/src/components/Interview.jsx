@@ -731,7 +731,7 @@ export default function Interview({
           <b>
             Previous answer:{' '}
             {s.answers.at(-1).answer_score == null
-              ? 'Not evaluated yet'
+              ? 'Evaluating…'
               : `${s.answers.at(-1).answer_score}/100`}
           </b>
           <p>

@@ -253,7 +253,11 @@ export default function Report({ session: s, staff, onHold, onUpdate, onPractice
                     <span className="question-list-number">{i + 1}</span>
                     <span className="question-list-text">{a.question_text}</span>
                     <span className="question-list-score">
-                      {a.answer_score != null ? `${a.answer_score}/100` : '—'}
+                      {a.answer_score != null
+                        ? `${a.answer_score}/100`
+                        : r.evaluated_answers < r.total_answers
+                          ? 'Evaluating…'
+                          : '—'}
                     </span>
                   </li>
                 ))}
